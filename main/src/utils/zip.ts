@@ -116,7 +116,13 @@ export async function createZipBlob(entries: ZipEntry[]): Promise<Blob> {
     u16(0),
   ]);
 
-  return new Blob([concat([...localParts, centralDir, end])], {
+  const zipBytes = concat([...localParts, centralDir, end]);
+  const ab = zipBytes.buffer.slice(
+    zipBytes.byteOffset,
+    zipBytes.byteOffset + zipBytes.byteLength,
+  ) as ArrayBuffer;
+
+  return new Blob([ab], {
     type: "application/zip",
   });
 }
