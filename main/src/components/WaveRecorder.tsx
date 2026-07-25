@@ -82,7 +82,13 @@ function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
 
 
 interface WaveRecorderProps {
-  onRecordingComplete: (score: number, feedback: string, transcript: string, yueText: string) => void;
+  onRecordingComplete: (
+    score: number,
+    feedback: string,
+    transcript: string,
+    yueText: string,
+    recordingBlob?: Blob | null,
+  ) => void;
   onReset: any;
 }
 
@@ -429,10 +435,10 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
 
       const finalScore = calculateTextSimilarity(transcript, yueText ?? "");
       const feedback = generateFeedback(finalScore);
-      onRecordingComplete(finalScore, feedback, transcript, yueText);
+      onRecordingComplete(finalScore, feedback, transcript, yueText, recordingBlobRef.current);
     } catch (err) {
       console.error("转录失败:", err);
-      onRecordingComplete(0, "系统错误", "", yueText ?? "");
+      onRecordingComplete(0, "系统错误", "", yueText ?? "", recordingBlobRef.current);
     } finally {
       transcribingRef.current = false;
       setTranscribing(false);

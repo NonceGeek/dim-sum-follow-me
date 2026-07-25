@@ -2,6 +2,7 @@
 import { useState } from "react";
 import category from "@/data/category";
 import categoryGfxm from "@/data/category_gfxm";
+import categoryShilizi from "@/data/category_shilizi";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
@@ -24,7 +25,11 @@ export default function Category({
   const router = useRouter();
 
   const categories: CategoryItem[] =
-    corpusId === "gfxm1" ? [categoryGfxm.gfxm1] : category;
+    corpusId === "gfxm1"
+      ? [categoryGfxm.gfxm1]
+      : corpusId === "shi-li-zhi"
+        ? categoryShilizi
+        : category;
 
   const start: any = (item: CategoryItem) => {
     setQuestions(item.questions as []);

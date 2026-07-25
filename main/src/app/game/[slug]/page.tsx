@@ -5,9 +5,53 @@ import { Table } from "antd";
 import { useRouter } from "next/navigation";
 import category from "@/data/category";
 import categoryGfxm from "@/data/category_gfxm";
+import categoryShilizi from "@/data/category_shilizi";
 import Game, { GameHandle, QuestionResult } from "@/components/Game";
 import Footer from "@/components/Footer";
 import { useQuestionStore } from "@/stores/questionStore";
+import { convertBlobToWav } from "@/utils/transcribeApi";
+import { createZipBlob } from "@/utils/zip";
+
+function sanitizeFilenamePart(text: string, maxLen = 50): string {
+  return text
+    .trim()
+    .replace(/[/\\:*?"<>|\n\r]/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, maxLen);
+}
+
+function formatRecordingTimestamp(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function triggerDownload(url: string, filename: string) {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+const COLLECTION_NAME_BY_SLUG: Record<string, string> = {
+  "shi-li-zhi": "广图粤语公开课测评集",
+  "shi-li-zhi-1": "广图粤语公开课测评集",
+  "shi-li-zhi-2": "广图粤语公开课测评集",
+  wanjui: "粤语高频生活场景合集",
+  gfxm1: "功夫熊猫1",
+};
+
+function resolveCategoryItem(slug: string): {
+  name?: string;
+  questions?: unknown[];
+} | undefined {
+  if (slug === "gfxm1") return categoryGfxm.gfxm1;
+  const shiliziItem = categoryShilizi.find((item) => String(item.key) === slug);
+  if (shiliziItem) return shiliziItem;
+  return category.find((item) => String(item.key) === slug);
+}
 
 export default function FolllowPageDetail({
   params,
@@ -17,11 +61,14 @@ export default function FolllowPageDetail({
   const { slug } = use(params);
   const router = useRouter();
   const [questions, setQuestions]: any = useState([]);
+  const [collectionName, setCollectionName] = useState("");
+  const [subCollectionName, setSubCollectionName] = useState("");
   const [hasReult, setResult]: any = useState(false);
 
   let [quesNumber, setQuesNumber] = useState(0);
   const [results, setResults] = useState<Record<number, QuestionResult>>({});
   const [showResults, setShowResults] = useState(false);
+  const [packingZip, setPackingZip] = useState(false);
 
   const audioRef: any = useRef(null);
   const gameRef = useRef<GameHandle>(null);
@@ -42,14 +89,11 @@ export default function FolllowPageDetail({
   };
 
   useEffect(() => {
-    const categoryItem: { questions?: unknown[] } | undefined =
-      slug === "gfxm1"
-        ? categoryGfxm.gfxm1
-        : (category as unknown as Record<string, { questions?: unknown[] }>)[
-            slug
-          ];
+    const categoryItem = resolveCategoryItem(slug);
     const ques: any = categoryItem?.questions || [];
     setQuestions(ques);
+    setCollectionName(COLLECTION_NAME_BY_SLUG[slug] ?? slug);
+    setSubCollectionName(categoryItem?.name ?? slug);
     setCurrentQuestion(ques[0] || []);
   }, [slug, setCurrentQuestion]);
 
@@ -70,6 +114,63 @@ export default function FolllowPageDetail({
     feedback: results[i]?.feedback ?? "—",
   }));
 
+  const handlePackDownload = async () => {
+    const recordings = Object.entries(results)
+      .map(([index, result]) => ({
+        index: Number(index),
+        blob: result.recordingBlob,
+        yueText: result.yueText || questions[Number(index)]?.yueText || "",
+        originalText:
+          questions[Number(index)]?.originalText ||
+          result.yueText ||
+          `第${Number(index) + 1}题`,
+      }))
+      .filter((item) => item.blob && item.blob.size > 0)
+      .sort((a, b) => a.index - b.index);
+
+    if (recordings.length === 0) {
+      alert("暂无可用的录制音频");
+      return;
+    }
+
+    const nickname = window.prompt("请输入你的昵称");
+    if (nickname === null) return;
+    if (!nickname.trim()) {
+      alert("昵称不能为空");
+      return;
+    }
+
+    setPackingZip(true);
+    try {
+      const entries = await Promise.all(
+        recordings.map(async (item) => {
+          const wav = await convertBlobToWav(item.blob!);
+          const textPart =
+            sanitizeFilenamePart(item.originalText || item.yueText || "录音") ||
+            "录音";
+          const name = `${String(item.index + 1).padStart(2, "0")}_${textPart}.wav`;
+          return { name, data: wav };
+        }),
+      );
+
+      const zipBlob = await createZipBlob(entries);
+      const nickPart = sanitizeFilenamePart(nickname, 30);
+      const collectionPart =
+        sanitizeFilenamePart(collectionName || slug, 40) || "合集";
+      const subCollectionPart =
+        sanitizeFilenamePart(subCollectionName || slug, 40) || "子合集";
+      const filename = `${nickPart}_${collectionPart}_${subCollectionPart}_${formatRecordingTimestamp(new Date())}.zip`;
+      const url = URL.createObjectURL(zipBlob);
+      triggerDownload(url, filename);
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error("打包下载失败:", err);
+      alert(err instanceof Error ? err.message : "打包下载失败");
+    } finally {
+      setPackingZip(false);
+    }
+  };
+
   return (
     <div className="">
       {showResults && (
@@ -83,12 +184,22 @@ export default function FolllowPageDetail({
               size="small"
               className="[&_.ant-table]:text-black [&_.ant-table-thead_th]:bg-neutral-200 [&_.ant-table-thead_th]:text-black [&_.ant-table-tbody_td]:text-black [&_.ant-table]:border-neutral-600"
             />
-            <button
-              className="mt-4 px-4 py-2 border border-black text-black rounded-xl"
-              onClick={() => setShowResults(false)}
-            >
-              返回
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                className="px-4 py-2 border border-black text-black rounded-xl"
+                onClick={() => setShowResults(false)}
+              >
+                返回
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 border border-black text-black rounded-xl disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void handlePackDownload()}
+                disabled={packingZip}
+              >
+                {packingZip ? "打包中…" : "打包下载结果"}
+              </button>
+            </div>
           </div>
         </div>
       )}

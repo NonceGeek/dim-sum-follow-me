@@ -13,6 +13,7 @@ export interface QuestionResult {
   yueText: string;
   score: number;
   feedback: string;
+  recordingBlob?: Blob | null;
 }
 
 const Game = forwardRef<
@@ -32,7 +33,8 @@ const Game = forwardRef<
     score: number,
     feedback: string,
     transcript: string,
-    yueText: string
+    yueText: string,
+    recordingBlob?: Blob | null,
   ) => {
     setScore(score);
     setFeedback(feedback);
@@ -40,7 +42,7 @@ const Game = forwardRef<
     setYueText(yueText);
     setShowScore(true);
     getResult(score);
-    onResult?.({ transcript, yueText, score, feedback });
+    onResult?.({ transcript, yueText, score, feedback, recordingBlob });
   };
 
   const resetDisplayState = () => {
