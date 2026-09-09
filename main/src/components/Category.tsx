@@ -2,7 +2,7 @@
 import { useState } from "react";
 import category from "@/data/category";
 import categoryGfxm from "@/data/category_gfxm";
-import categoryShilizi from "@/data/category_shilizi";
+import categoryShilizi, { categoryShiliziV2 } from "@/data/category_shilizi";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
@@ -29,7 +29,9 @@ export default function Category({
       ? [categoryGfxm.gfxm1]
       : corpusId === "shi-li-zhi"
         ? categoryShilizi
-        : category;
+        : corpusId === "shi-li-zhi-v2"
+          ? categoryShiliziV2
+          : category;
 
   const start: any = (item: CategoryItem) => {
     setQuestions(item.questions as []);

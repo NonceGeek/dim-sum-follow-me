@@ -5,7 +5,12 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 
 const CORPUS_OPTIONS = [
-  { value: "shi-li-zhi", label: "广图粤语公开课测评集", description: "朗读苏轼的「食荔枝」~" },
+  { value: "shi-li-zhi", label: "广图粤语公开课测评集", description: "朗读苏轼「食荔枝」~" },
+  {
+    value: "shi-li-zhi-v2",
+    label: "广图粤语公开课测评集2.0",
+    description: "经典 20 首古诗词粤语诵读，内容由广州大学粤播专业曾老师团队提供🌹~",
+  },
   { value: "wanjui", label: "粤语高频生活场景合集", description: "粤语高频生活场景合集，接地气的日常粤语对话😎~" },
   // { value: "tongyao", label: "广府童谣" },
   { value: "gfxm1", label: "功夫熊猫1",description: "来自动画「功夫熊猫1」的语料合集，适合小朋友学习😎~" },

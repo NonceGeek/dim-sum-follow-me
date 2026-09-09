@@ -13,6 +13,7 @@
     "npm:marked-footnote@^1.4.0": "1.4.0_marked@17.0.4",
     "npm:marked-gfm-heading-id@^4.1.3": "4.1.3_marked@17.0.4",
     "npm:marked@^17.0.1": "17.0.4",
+    "npm:opencc-js@1.3.1": "1.3.1",
     "npm:prismjs@^1.30.0": "1.30.0",
     "npm:sanitize-html@^2.17.0": "2.17.1",
     "npm:to-jyutping@3": "3.1.1"
@@ -198,6 +199,9 @@
     "nanoid@3.3.11": {
       "integrity": "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==",
       "bin": true
+    },
+    "opencc-js@1.3.1": {
+      "integrity": "sha512-EyKDnjHNYlxo3Blll0OGH5qcyZBI3YmXpqeDEity/db50A5TFfCdvylrBlTyx1XvlSRUmh2a5AHvSf89h4u87Q=="
     },
     "parse-srcset@1.0.2": {
       "integrity": "sha512-/2qh0lav6CmI15FzA3i/2Bzk2zCgQhGMkvhOhKNcBVQ1ldgpbfiNTVslmooUmWJcADi1f1kIeynbDRVzNlfR6Q=="
