@@ -404,7 +404,8 @@
   "workspace": {
     "dependencies": [
       "jsr:@deno/gfm@0.12",
-      "jsr:@std/assert@1"
+      "jsr:@std/assert@1",
+      "npm:opencc-js@1.3.1"
     ]
   }
 }

@@ -3,6 +3,37 @@ import { convertArabicDigitsToChinese } from "@/utils/chineseNumerals";
 const TRANS_API = `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`;
 const RECORDER_TIMESLICE_MS = 250;
 
+export const NON_CANTONESE_FEEDBACK =
+  "(。・＿・。)ﾉ抱歉~但你讲的好像不是粤语喔！";
+
+export class NonCantoneseSpeechError extends Error {
+  readonly lang: string;
+  readonly transcript: string;
+
+  constructor(lang: string, transcript: string) {
+    super(NON_CANTONESE_FEEDBACK);
+    this.name = "NonCantoneseSpeechError";
+    this.lang = lang;
+    this.transcript = transcript;
+  }
+}
+
+export function isNonCantoneseSpeechError(
+  err: unknown,
+): err is NonCantoneseSpeechError {
+  if (err instanceof NonCantoneseSpeechError) return true;
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "NonCantoneseSpeechError" &&
+    typeof (err as { transcript?: unknown }).transcript === "string"
+  );
+}
+
+function isCantoneseLang(lang: unknown): boolean {
+  return typeof lang === "string" && lang.trim().toLowerCase() === "cantonese";
+}
+
 export type TranscribeProgressReporter = (message: string) => void;
 
 export type TranscribeVideoOptions = {
@@ -220,13 +251,18 @@ async function extractAudioWavFromVideoUrl(
   }
 }
 
-async function transcribeMediaFile(file: File): Promise<string> {
+async function transcribeMediaFile(
+  file: File,
+  expected?: string,
+): Promise<string> {
   const base = process.env.NEXT_PUBLIC_API_URL;
   if (!base) throw new Error("未配置 NEXT_PUBLIC_API_URL");
 
   const formData = new FormData();
   formData.append("file", file);
   formData.append("task", "transcribe");
+  // 目标句子。后端遇到含糊的 zh 语种标注时，用它区分粤语与普通话。
+  if (expected?.trim()) formData.append("expected", expected.trim());
 
   const res = await fetch(TRANS_API, {
     method: "POST",
@@ -238,8 +274,15 @@ async function transcribeMediaFile(file: File): Promise<string> {
   }
 
   const data = await res.json();
+
+  console.log("data", data);
   const text = typeof data.text === "string" ? data.text.trim() : "";
-  return convertArabicDigitsToChinese(text);
+  const transcript = convertArabicDigitsToChinese(text);
+  const lang = typeof data.lang === "string" ? data.lang.trim() : "";
+  if (lang && !isCantoneseLang(lang)) {
+    throw new NonCantoneseSpeechError(lang, transcript);
+  }
+  return transcript;
 }
 
 function videoFileExtension(name: string, mimeType: string): string {
@@ -254,15 +297,22 @@ function videoFileExtension(name: string, mimeType: string): string {
 async function transcribeWavBlob(
   wavBlob: Blob,
   onProgress?: TranscribeProgressReporter,
+  expected?: string,
 ): Promise<string> {
   onProgress?.("正在 AI 语音识别…");
-  return transcribeMediaFile(new File([wavBlob], "audio.wav", { type: "audio/wav" }));
+  return transcribeMediaFile(
+    new File([wavBlob], "audio.wav", { type: "audio/wav" }),
+    expected,
+  );
 }
 
-/** 调用 /api/transcribe，返回识别文本。 */
-export async function transcribeAudioBlob(blob: Blob): Promise<string> {
+/** 调用 /api/transcribe，返回识别文本。非粤语时抛出 NonCantoneseSpeechError。 */
+export async function transcribeAudioBlob(
+  blob: Blob,
+  expected?: string,
+): Promise<string> {
   const wavBlob = await convertBlobToWav(blob);
-  return transcribeWavBlob(wavBlob);
+  return transcribeWavBlob(wavBlob, undefined, expected);
 }
 
 /** 上传视频文件并转录其中的语音（浏览器抽取音轨后转 WAV）。 */

@@ -91,8 +91,11 @@ async function handleTranscribe(context: Context) {
     const prompt = form.fields?.prompt;
     const taskRaw = form.fields?.task;
     const task = taskRaw === "translate" ? "translate" : "transcribe";
+    // The line the speaker was asked to read. Optional, but without it a `zh`
+    // annotation from the ASR cannot be narrowed to Cantonese vs Mandarin.
+    const expected = form.fields?.expected;
 
-    const text = await transcribeCantoneseAudio(
+    const result = await transcribeCantoneseAudio(
       {
         dashScopeApiKey: DASHSCOPE_API_KEY,
         dashScopeModel: DASHSCOPE_ASR_MODEL,
@@ -104,14 +107,19 @@ async function handleTranscribe(context: Context) {
       {
         file,
         filename,
-        language: "zh",
-        // language: String(languageRaw || "").trim() || "yue",
+        language: "auto",
+        expected: expected ? String(expected) : undefined,
         prompt: prompt ? String(prompt) : undefined,
         task,
       },
     );
 
-    context.response.body = { text };
+    context.response.body = {
+      text: result.text,
+      lang: result.lang,
+      lang_source: result.langSource,
+      raw_language: result.rawLanguage ?? null,
+    };
   } catch (err) {
     console.error("transcribe error:", err);
     context.response.status = 500;
@@ -193,9 +201,11 @@ router
   // Cantonese audio via OpenRouter STT (/v1/audio/transcriptions); translate uses chat completions fallback.
   // Request: multipart/form-data with:
   // - file: audio file (required)
-  // - language: optional (default "yue")
+  // - expected: optional target line, disambiguates Cantonese vs Mandarin
   // - prompt: optional
   // - task: optional ("transcribe" | "translate")
+  // Response: { text, lang, lang_source, raw_language } where lang is
+  // "cantonese" | "mandarin" | "other" and lang_source says how it was decided.
   .post("/api/transcribe", handleTranscribe)
   // legacy alias (older deployments / WaveRecorder)
   .post("/api/trans_cantonese", handleTranscribe)

@@ -129,9 +129,9 @@ https://api.shadowing.app.aidimsum.com/docs/html
 
 ### `POST /api/transcribe`
 
-Transcribe Cantonese (or other Chinese) speech to text via [OpenRouter](https://openrouter.ai) STT.
+Transcribe speech to text via DashScope Qwen-ASR (primary) or [OpenRouter](https://openrouter.ai) STT (fallback), and detect whether the audio is **Cantonese**, **Mandarin**, or **another language**.
 
-The server accepts your upload as `multipart/form-data`, reads the audio into memory (max **25 MB**), base64-encodes it, and calls OpenRouter **`POST /v1/audio/transcriptions`** with an `input_audio` payload. This in-memory path works on Deno Deploy (no temp files).
+The server accepts your upload as `multipart/form-data`, reads the audio into memory (max **25 MB**), and runs ASR **without** a forced language hint so the model can auto-detect the spoken variety. This in-memory path works on Deno Deploy (no temp files).
 
 Legacy alias: `POST /api/trans_cantonese` (same handler).
 
@@ -140,14 +140,36 @@ Legacy alias: `POST /api/trans_cantonese` (same handler).
 | Field | Required | Description |
 |-------|----------|-------------|
 | `file` | Yes | Audio file. Supported extensions / formats: `wav`, `mp3`, `m4a`, `flac`, `ogg`, `aac`, `aiff`, `webm`, `pcm16`, `pcm24` |
+| `expected` | No | The line the speaker was asked to read. Strongly recommended — see below |
 | `prompt` | No | Optional context hint (used only when `task=translate`) |
 | `task` | No | `transcribe` (default) or `translate` |
 
-**Language:** Transcription always sends `language: "zh"` to OpenRouter (Cantonese / Chinese). A `language` form field is accepted by some clients but is **not** currently applied by the server.
+**`lang` detection:** The response includes `lang` with one of:
 
-**Default model:** `OPENROUTER_TRANSCRIPTION_MODEL` env var, default `qwen/qwen3-asr-flash-2026-02-10`.
+| Value | Meaning |
+|-------|---------|
+| `cantonese` | 粤语 (ASR code `yue` / `zh-HK`) |
+| `mandarin` | 普通话 / 国语 (ASR code `cmn`, or a `zh` decode that matched `expected` better than the Cantonese decode) |
+| `other` | English or any other detected language |
 
-**`task=translate`:** OpenRouter’s STT endpoint is transcribe-only. When `task=translate`, the server falls back to **`POST /v1/chat/completions`** with the same audio as `input_audio` and returns an English translation.
+DashScope documents `zh` as the whole Chinese family (普通话、四川话、闽南语、吴语…), so a `zh` annotation is **not** evidence of Mandarin — Cantonese audio is frequently labelled `zh`. The server therefore resolves `lang` in this order, and reports which step decided it in `lang_source`:
+
+| `lang_source` | How `lang` was decided |
+|---------------|------------------------|
+| `asr` | The ASR returned a decisive code (`yue`, `cmn`, `en`, …) |
+| `expected-match` | The code was the ambiguous `zh`, so the audio was decoded a second time with `asr_options.language = "yue"`; whichever transcript is closer to `expected` (by ≥8 similarity points) wins |
+| `text` | The transcript itself is decisive — written-Cantonese particles (`嘅咗喺嚟唔係…`) mean Cantonese; **Simplified Chinese** means Mandarin (Cantonese ASR usually emits Traditional); no CJK at all means `other` |
+| `unknown` | No evidence either way. `lang` defaults to `cantonese`, because classical poetry reads identically in both varieties and rejecting a correct Cantonese reading is worse than accepting a Mandarin one |
+
+Treat `lang: "mandarin"` as actionable only when `lang_source` is `asr` or `expected-match`. `raw_language` echoes the provider's untouched code for debugging.
+
+Passing `expected` is what makes Mandarin detection reliable: without it, a `zh` annotation can only fall through to `text` or `unknown`. It costs one extra ASR call, and only when the first annotation was ambiguous.
+
+A client `language` form field is **not** applied; the server always auto-detects so `lang` reflects the audio rather than a hint. Files above **7 MB** skip the inline Qwen-ASR path (DashScope caps base64 payloads at 10 MB) and go straight to the `paraformer-v2` fallback, which is hinted with `language_hints: ["yue", "zh"]`.
+
+**Default models:** DashScope `DASHSCOPE_ASR_MODEL` (default `qwen3-asr-flash`); OpenRouter fallback `OPENROUTER_TRANSCRIPTION_MODEL` (default `qwen/qwen3-asr-flash-2026-02-10`).
+
+**`task=translate`:** The audio is transcribed first (and `lang` is taken from that step), then translated to English via chat completions. `text` is the English translation; `lang` is still the **spoken** language of the audio.
 
 Run from the **repository root** (sample file: `main/public/audio/yue1.m4a`).
 
@@ -158,7 +180,8 @@ Run from the **repository root** (sample file: `main/public/audio/yue1.m4a`).
 ```bash
 curl --noproxy '*' -X POST http://127.0.0.1:3003/api/transcribe \
   -F "file=@main/public/audio/yue1.m4a" \
-  -F "task=transcribe"
+  -F "task=transcribe" \
+  -F "expected=我唔食辣嘢"
 ```
 
 If your shell cwd is `deno/`, use `../main/public/audio/yue1.m4a` instead.
@@ -176,7 +199,43 @@ curl --noproxy '*' -X POST http://127.0.0.1:3003/api/transcribe \
 
 ```json
 {
-  "text": "我唔食辣嘢"
+  "text": "我唔食辣嘢",
+  "lang": "cantonese",
+  "lang_source": "asr",
+  "raw_language": "yue"
+}
+```
+
+Mandarin example — note that `lang_source` shows the `zh` annotation was broken by comparing both decodes against `expected`:
+
+```json
+{
+  "text": "我不吃辣的东西",
+  "lang": "mandarin",
+  "lang_source": "expected-match",
+  "raw_language": "zh"
+}
+```
+
+English / other example:
+
+```json
+{
+  "text": "I don't eat spicy food",
+  "lang": "other",
+  "lang_source": "asr",
+  "raw_language": "en"
+}
+```
+
+Undetermined example — a poem read aloud, where nothing in the transcript distinguishes the two varieties. Clients should **not** reject on this:
+
+```json
+{
+  "text": "羅浮山下四時春，盧橘楊梅次第新。",
+  "lang": "cantonese",
+  "lang_source": "unknown",
+  "raw_language": "zh"
 }
 ```
 
@@ -197,7 +256,7 @@ curl --noproxy '*' -X POST http://127.0.0.1:3003/api/transcribe \
 | `fail to open/read local data from file` | Wrong path to sample audio | Run from repo root with `@main/public/audio/yue1.m4a` |
 | No server response at all | API not running | `cd deno && deno task dev`, then hit `/health` |
 
-Requires env var **`API_KEY`** (OpenRouter API key). Optional: `OPENROUTER_HTTP_REFERER`, `OPENROUTER_SITE_TITLE`.
+Requires env var **`DASHSCOPE_API_KEY`** and/or **`API_KEY`** (OpenRouter). Optional: `OPENROUTER_HTTP_REFERER`, `OPENROUTER_SITE_TITLE`.
 
 ---
 
@@ -456,8 +515,8 @@ curl -X DELETE http://localhost:3003/api/libs/1 \
 | GET | `/health` | — | Health check |
 | GET | `/docs` | — | API docs (Markdown) |
 | GET | `/docs/html` | — | API docs (HTML) |
-| POST | `/api/transcribe` | `API_KEY` | Transcribe audio (OpenRouter STT, max 25 MB) |
-| POST | `/api/trans_cantonese` | `API_KEY` | Transcribe (legacy alias) |
+| POST | `/api/transcribe` | `DASHSCOPE_API_KEY` / `API_KEY` | Transcribe audio and return `lang` (`cantonese` / `mandarin` / `other`) plus `lang_source` |
+| POST | `/api/trans_cantonese` | `DASHSCOPE_API_KEY` / `API_KEY` | Transcribe (legacy alias of `/api/transcribe`) |
 | GET/POST | `/api/to_jyutping` | — | Text → Jyutping |
 | GET | `/api/libs` | — | List libraries |
 | GET | `/api/libs/:id` | — | Get library |

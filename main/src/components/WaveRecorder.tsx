@@ -4,12 +4,15 @@ import WaveSurfer from "wavesurfer.js";
 import { Tooltip, Progress } from "antd";
 import { useQuestionStore } from "@/stores/questionStore";
 import { calculateTextSimilarity } from "@/utils/textSimilarity";
-import { convertArabicDigitsToChinese } from "@/utils/chineseNumerals";
+import {
+  isNonCantoneseSpeechError,
+  NON_CANTONESE_FEEDBACK,
+  transcribeAudioBlob,
+} from "@/utils/transcribeApi";
 import { IoPulseSharp } from "react-icons/io5";
 
 const LEADERBOARD_SUBMIT_URL =
   "https://wcn3glqwz3m6.feishu.cn/share/base/form/shrcnxrws3HE37CfOWJgt9VaXqc";
-const TRANS_API = `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`;
 // 静音判定：手机麦克风增益较低，阈值与等待时间略放宽
 const isMobileDevice = () =>
   typeof navigator !== "undefined" &&
@@ -409,26 +412,7 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
     await new Promise((resolve) => setTimeout(resolve, 350));
 
     try {
-      const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
-      const file = new File([blob], `recording.${ext}`, {
-        type: blob.type || "audio/webm",
-      });
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("language", "yue");
-      formData.append("task", "transcribe");
-
-      const res = await fetch(TRANS_API, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`转录请求失败: ${res.status}`);
-      }
-
-      const data = await res.json();
-      const transcript: string = convertArabicDigitsToChinese(data.text ?? "");
+      const transcript = await transcribeAudioBlob(blob, yueText ?? undefined);
       setTranscript(transcript);
       console.log("transcript", transcript);
       console.log("yueText", yueText);
@@ -438,7 +422,18 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
       onRecordingComplete(finalScore, feedback, transcript, yueText, recordingBlobRef.current);
     } catch (err) {
       console.error("转录失败:", err);
-      onRecordingComplete(0, "系统错误", "", yueText ?? "", recordingBlobRef.current);
+      if (isNonCantoneseSpeechError(err)) {
+        setTranscript(err.transcript);
+        onRecordingComplete(
+          0,
+          NON_CANTONESE_FEEDBACK,
+          err.transcript,
+          yueText ?? "",
+          recordingBlobRef.current,
+        );
+      } else {
+        onRecordingComplete(0, "系统错误", "", yueText ?? "", recordingBlobRef.current);
+      }
     } finally {
       transcribingRef.current = false;
       setTranscribing(false);
