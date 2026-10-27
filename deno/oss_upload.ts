@@ -87,13 +87,18 @@ export async function buildPostObjectForm(params: {
       { bucket: OSS_BUCKET },
       ["eq", "$key", params.key],
       ["eq", "$Content-Type", params.contentType],
+      // Required when the form also sends this field (Aliyun PostObject rule).
+      ["eq", `$${FORBID_OVERWRITE_HEADER}`, "true"],
       ["content-length-range", 1, params.maxBytes],
+      // 200 is more reliable for browser CORS than the default 204.
+      ["eq", "$success_action_status", "200"],
     ],
   }));
   return {
     key: params.key,
     "Content-Type": params.contentType,
     [FORBID_OVERWRITE_HEADER]: "true",
+    success_action_status: "200",
     OSSAccessKeyId: ALI_OSS_ACCESS_KEY_ID,
     policy,
     Signature: await ossSignatureV1(ALI_OSS_ACCESS_KEY_SECRET, policy),

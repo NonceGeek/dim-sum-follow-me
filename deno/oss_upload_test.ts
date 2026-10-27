@@ -41,12 +41,15 @@ Deno.test("PostObject policy locks key, Content-Type and size range", async () =
       { bucket: "dimsum-fo" },
       ["eq", "$key", "uploads/20261024/a.m4a"],
       ["eq", "$Content-Type", "audio/m4a"],
+      ["eq", "$x-oss-forbid-overwrite", "true"],
       ["content-length-range", 1, 5242880],
+      ["eq", "$success_action_status", "200"],
     ],
   });
   assertEquals(fields.key, "uploads/20261024/a.m4a");
   assertEquals(fields["Content-Type"], "audio/m4a");
   assertEquals(fields["x-oss-forbid-overwrite"], "true");
+  assertEquals(fields.success_action_status, "200");
   assertEquals(
     fields.Signature,
     await ossSignatureV1(Deno.env.get("ALI_OSS_ACCESS_KEY_SECRET")!, fields.policy),

@@ -1,4 +1,14 @@
-/** Browser → Aliyun OSS PostObject upload via the Deno `/api/upload/*` APIs. */
+/**
+ * Browser → Aliyun OSS PostObject (direct upload).
+ *
+ * Flow:
+ * 1. POST Deno `/api/upload/get_pre_sign` → upload_url + form_fields + upload_token
+ * 2. POST upload_url (OSS) with form_fields + file (last) — same as curl PostObject
+ * 3. POST Deno `/api/upload/complete` → verified public url
+ *
+ * Requires: bucket CORS allows this page Origin (POST), and the browser can
+ * reach *.aliyuncs.com (local proxy/TUN must not hijack OSS DNS).
+ */
 
 const API_BASE = () => {
   const base = process.env.NEXT_PUBLIC_API_URL;
@@ -40,7 +50,6 @@ type CompleteResponse = {
 function normalizeContentType(blob: Blob): string {
   const raw = (blob.type || "").trim().toLowerCase().split(";")[0] ?? "";
   if (ALLOWED_CONTENT_TYPES.has(raw)) return raw;
-  // Recordings are converted to WAV before upload; default when type is empty.
   if (!raw || raw.endsWith("wav")) return "audio/wav";
   throw new Error(
     `不支持的音频格式: ${raw || "(empty)"}. 仅支持 wav / m4a / mp3`,
@@ -76,14 +85,7 @@ async function readOssError(res: Response): Promise<string> {
   return detail;
 }
 
-/**
- * Upload an audio blob to OSS (PostObject) and return the verified public URL.
- *
- * Flow (browser direct upload — no file bytes through Deno):
- * 1. POST /api/upload/get_pre_sign  → upload_url + form_fields + upload_token
- * 2. POST upload_url (OSS)          → multipart form_fields + file (last)
- * 3. POST /api/upload/complete      → verified public url
- */
+/** Upload an audio blob straight to OSS; return the verified public URL. */
 export async function uploadAudioToOss(
   blob: Blob,
   options?: { onProgress?: (message: string) => void },
@@ -109,38 +111,39 @@ export async function uploadAudioToOss(
     throw new Error(`文件过大: 最大 ${pre.max_bytes} 字节`);
   }
 
-  // 2) browser → OSS PostObject (file must be the last form field)
+  // 2) browser → OSS PostObject (must match curl: fields then file last)
   report?.("正在上传音频…");
   const form = new FormData();
   for (const [name, value] of Object.entries(pre.form_fields)) {
     form.append(name, value);
   }
   const partType = pre.form_fields["Content-Type"] || contentType;
-  const filename = `audio.${extensionForContentType(partType)}`;
-  // OSS checks Content-Type against the file part's MIME type; filename helps browsers set Content-Disposition.
-  form.append("file", new Blob([blob], { type: partType }), filename);
+  form.append(
+    "file",
+    new Blob([blob], { type: partType }),
+    `audio.${extensionForContentType(partType)}`,
+  );
 
   let putRes: Response;
   try {
-    // Do not set Content-Type manually — browser must set multipart boundary.
+    // Do not set Content-Type header — browser sets multipart boundary.
     putRes = await fetch(pre.upload_url, {
       method: pre.method || "POST",
       body: form,
     });
   } catch (err) {
-    // Chrome reports CORS/network failures as TypeError: Failed to fetch
     throw new Error(
       `上传到 OSS 失败（网络或 CORS）: ${
         err instanceof Error ? err.message : String(err)
-      }。请确认 bucket CORS 允许当前页面 Origin 的 POST，且本机代理未劫持 *.aliyuncs.com`,
+      }。请确认 bucket CORS 允许当前 Origin 的 POST，且代理未劫持 *.aliyuncs.com（fake-ip / TUN 常导致 TLS 失败）`,
     );
   }
-  // OSS returns 204 No Content on success.
+  // success_action_status=200 → 200; older forms may return 204
   if (!putRes.ok && putRes.status !== 204) {
     throw new Error(`上传到 OSS 失败: ${await readOssError(putRes)}`);
   }
 
-  // 3) complete — server HEAD-verifies the object
+  // 3) complete
   report?.("正在确认上传…");
   const completeRes = await fetch(`${API_BASE()}/api/upload/complete`, {
     method: "POST",
