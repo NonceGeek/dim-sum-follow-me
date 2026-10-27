@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import category from "@/data/category";
-import categoryGfxm from "@/data/category_gfxm";
-import categoryShilizi, { categoryShiliziV2 } from "@/data/category_shilizi";
+import categoryGfxm from "@/data/categoryGfxm";
+import categoryShilizi, { categoryShiliziV2 } from "@/data/categoryShilizi";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
@@ -26,7 +26,7 @@ export default function Category({
 
   const categories: CategoryItem[] =
     corpusId === "gfxm1"
-      ? [categoryGfxm.gfxm1]
+      ? categoryGfxm
       : corpusId === "shi-li-zhi"
         ? categoryShilizi
         : corpusId === "shi-li-zhi-v2"

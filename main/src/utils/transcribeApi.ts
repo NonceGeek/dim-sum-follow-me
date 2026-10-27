@@ -1,10 +1,13 @@
 import { convertArabicDigitsToChinese } from "@/utils/chineseNumerals";
+import { uploadAudioToOss } from "@/utils/ossUpload";
 
 const TRANS_API = `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`;
 const RECORDER_TIMESLICE_MS = 250;
 
 export const NON_CANTONESE_FEEDBACK =
-  "(。・＿・。)ﾉ抱歉~但你讲的好像不是粤语喔！";
+  "你讲嘅好似唔系粤语喔，再试多次啦~";
+
+export const NON_CANTONESE_SCORE = "🤔";
 
 export class NonCantoneseSpeechError extends Error {
   readonly lang: string;
@@ -30,8 +33,12 @@ export function isNonCantoneseSpeechError(
   );
 }
 
-function isCantoneseLang(lang: unknown): boolean {
-  return typeof lang === "string" && lang.trim().toLowerCase() === "cantonese";
+/** ASR 明确标成 `yue` 才算粤语；`zh` / 缺失 / 其他语种一律按非粤语处理。 */
+function isYueRawLanguage(rawLanguage: unknown): boolean {
+  return (
+    typeof rawLanguage === "string" &&
+    rawLanguage.trim().toLowerCase() === "yue"
+  );
 }
 
 export type TranscribeProgressReporter = (message: string) => void;
@@ -251,12 +258,63 @@ async function extractAudioWavFromVideoUrl(
   }
 }
 
+function parseTranscribeResponse(data: {
+  text?: unknown;
+  raw_language?: unknown;
+}): string {
+  console.log("data", data);
+  const text = typeof data.text === "string" ? data.text.trim() : "";
+  const transcript = convertArabicDigitsToChinese(text);
+  const rawLanguage =
+    typeof data.raw_language === "string" ? data.raw_language.trim() : "";
+  if (!isYueRawLanguage(rawLanguage)) {
+    throw new NonCantoneseSpeechError(rawLanguage || "unknown", transcript);
+  }
+  return transcript;
+}
+
+/** Upload audio to OSS, then call /api/transcribe with `audio_url`. */
+async function transcribeViaOssAudioUrl(
+  blob: Blob,
+  expected?: string,
+  onProgress?: TranscribeProgressReporter,
+): Promise<string> {
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    throw new Error("未配置 NEXT_PUBLIC_API_URL");
+  }
+
+  const audioUrl = await uploadAudioToOss(blob, { onProgress });
+
+  onProgress?.("正在 AI 语音识别…");
+  const formData = new FormData();
+  formData.append("audio_url", audioUrl);
+  formData.append("task", "transcribe");
+  // 目标句子。后端遇到含糊的 zh 语种标注时，用它区分粤语与普通话。
+  if (expected?.trim()) formData.append("expected", expected.trim());
+
+  const res = await fetch(TRANS_API, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error(`转录请求失败: ${res.status}`);
+  }
+
+  return parseTranscribeResponse(await res.json());
+}
+
+/**
+ * Multipart `file` upload fallback (e.g. video when OSS only accepts audio).
+ * Prefer `transcribeViaOssAudioUrl` for wav / m4a / mp3.
+ */
 async function transcribeMediaFile(
   file: File,
   expected?: string,
 ): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (!base) throw new Error("未配置 NEXT_PUBLIC_API_URL");
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    throw new Error("未配置 NEXT_PUBLIC_API_URL");
+  }
 
   const formData = new FormData();
   formData.append("file", file);
@@ -273,16 +331,7 @@ async function transcribeMediaFile(
     throw new Error(`转录请求失败: ${res.status}`);
   }
 
-  const data = await res.json();
-
-  console.log("data", data);
-  const text = typeof data.text === "string" ? data.text.trim() : "";
-  const transcript = convertArabicDigitsToChinese(text);
-  const lang = typeof data.lang === "string" ? data.lang.trim() : "";
-  if (lang && !isCantoneseLang(lang)) {
-    throw new NonCantoneseSpeechError(lang, transcript);
-  }
-  return transcript;
+  return parseTranscribeResponse(await res.json());
 }
 
 function videoFileExtension(name: string, mimeType: string): string {
@@ -299,14 +348,14 @@ async function transcribeWavBlob(
   onProgress?: TranscribeProgressReporter,
   expected?: string,
 ): Promise<string> {
-  onProgress?.("正在 AI 语音识别…");
-  return transcribeMediaFile(
-    new File([wavBlob], "audio.wav", { type: "audio/wav" }),
+  return transcribeViaOssAudioUrl(
+    new Blob([wavBlob], { type: "audio/wav" }),
     expected,
+    onProgress,
   );
 }
 
-/** 调用 /api/transcribe，返回识别文本。非粤语时抛出 NonCantoneseSpeechError。 */
+/** 上传到 OSS 后调用 /api/transcribe（audio_url）。非粤语时抛出 NonCantoneseSpeechError。 */
 export async function transcribeAudioBlob(
   blob: Blob,
   expected?: string,
@@ -367,11 +416,24 @@ export async function transcribeVideoUrl(
   }
 }
 
-/** 从音频 URL 拉取并转录（受 CORS 限制）。 */
+/** 用公开音频 URL 直接调用 /api/transcribe（`audio_url`，无需再上传）。 */
 export async function transcribeAudioUrl(url: string): Promise<string> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("无法加载音频链接，请检查链接或改用本地上传");
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    throw new Error("未配置 NEXT_PUBLIC_API_URL");
   }
-  return transcribeAudioBlob(await res.blob());
+  const trimmed = url.trim();
+  if (!trimmed) throw new Error("音频链接为空");
+
+  const formData = new FormData();
+  formData.append("audio_url", trimmed);
+  formData.append("task", "transcribe");
+
+  const res = await fetch(TRANS_API, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error(`转录请求失败: ${res.status}`);
+  }
+  return parseTranscribeResponse(await res.json());
 }

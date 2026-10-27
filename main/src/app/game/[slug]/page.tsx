@@ -4,8 +4,8 @@ import { IoVolumeMediumSharp } from "react-icons/io5";
 import { Table } from "antd";
 import { useRouter } from "next/navigation";
 import category from "@/data/category";
-import categoryGfxm from "@/data/category_gfxm";
-import categoryShilizi, { categoryShiliziV2 } from "@/data/category_shilizi";
+import categoryGfxm from "@/data/categoryGfxm";
+import categoryShilizi, { categoryShiliziV2 } from "@/data/categoryShilizi";
 import Game, { GameHandle, QuestionResult } from "@/components/Game";
 import Footer from "@/components/Footer";
 import { useQuestionStore } from "@/stores/questionStore";
@@ -65,7 +65,8 @@ function resolveCategoryItem(slug: string): {
   name?: string;
   questions?: unknown[];
 } | undefined {
-  if (slug === "gfxm1") return categoryGfxm.gfxm1;
+  const gfxmItem = categoryGfxm.find((item) => String(item.key) === slug);
+  if (gfxmItem) return gfxmItem;
   const shiliziV2Item = categoryShiliziV2.find((item) => String(item.key) === slug);
   if (shiliziV2Item) return shiliziV2Item;
   const shiliziItem = categoryShilizi.find((item) => String(item.key) === slug);

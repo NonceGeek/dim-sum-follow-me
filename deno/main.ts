@@ -3,7 +3,7 @@
  *
  * Environment variables:
  *   DASHSCOPE_API_KEY               – DashScope API key (primary for transcription)
- *   DASHSCOPE_ASR_MODEL            – optional, default qwen3-asr-flash
+ *   DASHSCOPE_ASR_MODEL             – optional, default qwen3-asr-flash (DashScope only)
  *   API_KEY                         – OpenRouter API key (fallback for transcription)
  *   OPENROUTER_TRANSCRIPTION_MODEL  – optional, default qwen/qwen3-asr-flash-2026-02-10
  *   OPENROUTER_HTTP_REFERER         – optional OpenRouter HTTP-Referer header
@@ -13,12 +13,19 @@
  *   LIB_CREATE_PASSWD               – password for POST /api/libs
  *   LIB_UPDATE_PASSWD               – password for PATCH /api/libs/:id
  *   LIB_DELETE_PASSWD               – password for DELETE /api/libs/:id
+ *   ALI_OSS_ACCESS_KEY_ID           – Aliyun OSS key id (required for /api/upload/*)
+ *   ALI_OSS_ACCESS_KEY_SECRET       – Aliyun OSS key secret (required for /api/upload/*)
+ *   OSS_BUCKET                      – optional, default dimsum-fo
+ *   OSS_REGION                      – optional, default oss-cn-guangzhou
+ *   OSS_UPLOAD_PREFIX               – optional, default uploads
+ *   OSS_UPLOAD_EXPIRES_SECONDS      – optional, default 600 (pre-signed URL lifetime)
+ *   OSS_UPLOAD_MAX_BYTES            – optional, default 5242880 (5MB)
  *   PORT                            – optional, default 3003
  */
 
 import { oakCors } from "https://deno.land/x/cors@v1.2.2/mod.ts";
 import { Application, Context, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
-import { transcribeCantoneseAudio } from "./audio_utils.ts";
+import { parsePublicAudioUrl, transcribeCantoneseAudio } from "./audio_utils.ts";
 import { CSS, render } from "@deno/gfm";
 import {
   createLib,
@@ -29,14 +36,16 @@ import {
   updateLib,
 } from "./lib_crud.ts";
 import { handleToJyutping } from "./jyutping_utils.ts";
+import { handleGetPreSign, handleUploadComplete } from "./oss_upload.ts";
 
 const DASHSCOPE_API_KEY = Deno.env.get("DASHSCOPE_API_KEY") || "";
 const DASHSCOPE_ASR_MODEL =
   Deno.env.get("DASHSCOPE_ASR_MODEL") || "qwen3-asr-flash";
 const OPENROUTER_KEY = Deno.env.get("API_KEY") || "";
-const TRANSCRIPTION_MODEL =
-  Deno.env.get("OPENROUTER_TRANSCRIPTION_MODEL") || "qwen/qwen3-asr-flash-2026-02-10";
-// "openai/gpt-4o-mini-transcribe"
+// OpenRouter model IDs differ from DashScope (e.g. qwen/qwen3-asr-flash-…).
+const OPENROUTER_TRANSCRIPTION_MODEL =
+  Deno.env.get("OPENROUTER_TRANSCRIPTION_MODEL") ||
+  "qwen/qwen3-asr-flash-2026-02-10";
 const OPENROUTER_HTTP_REFERER = Deno.env.get("OPENROUTER_HTTP_REFERER") || "";
 const OPENROUTER_SITE_TITLE = Deno.env.get("OPENROUTER_SITE_TITLE") || "";
 
@@ -61,31 +70,49 @@ async function handleTranscribe(context: Context) {
       maxSize: maxAudioBytes,
     });
 
-    const fileField = form.files?.find((f) => f.name === "file") ?? form.files?.[0];
-    if (!fileField) {
+    // Prefer a public audio URL when provided — DashScope fetches it directly
+    // (no upload / base64). Otherwise fall back to multipart `file`.
+    let audioUrl: string | undefined;
+    try {
+      audioUrl = parsePublicAudioUrl(form.fields?.audio_url);
+    } catch (err) {
       context.response.status = 400;
-      context.response.body = { error: "multipart field 'file' is required" };
+      context.response.body = { error: String(err) };
       return;
     }
 
-    // Oak may provide either a temporary filepath or raw content.
-    let fileBytes: Uint8Array;
-    if (fileField.content) {
-      fileBytes = fileField.content;
-    } else if (fileField.filename) {
-      const path =
-        (fileField as unknown as { tempfile?: string }).tempfile ?? fileField.filename;
-      fileBytes = await Deno.readFile(path);
-    } else {
-      context.response.status = 400;
-      context.response.body = { error: "could not read uploaded file" };
-      return;
-    }
+    let file: File | undefined;
+    let filename: string | undefined;
 
-    const filename = fileField.originalName ?? "audio";
-    const mimeType = fileField.contentType ?? "application/octet-stream";
-    const arrayBuffer: ArrayBuffer = Uint8Array.from(fileBytes).buffer;
-    const file = new File([arrayBuffer], filename, { type: mimeType });
+    if (!audioUrl) {
+      const fileField = form.files?.find((f) => f.name === "file") ?? form.files?.[0];
+      if (!fileField) {
+        context.response.status = 400;
+        context.response.body = {
+          error: "multipart field 'file' or 'audio_url' is required",
+        };
+        return;
+      }
+
+      // Oak may provide either a temporary filepath or raw content.
+      let fileBytes: Uint8Array;
+      if (fileField.content) {
+        fileBytes = fileField.content;
+      } else if (fileField.filename) {
+        const path =
+          (fileField as unknown as { tempfile?: string }).tempfile ?? fileField.filename;
+        fileBytes = await Deno.readFile(path);
+      } else {
+        context.response.status = 400;
+        context.response.body = { error: "could not read uploaded file" };
+        return;
+      }
+
+      filename = fileField.originalName ?? "audio";
+      const mimeType = fileField.contentType ?? "application/octet-stream";
+      const arrayBuffer: ArrayBuffer = Uint8Array.from(fileBytes).buffer;
+      file = new File([arrayBuffer], filename, { type: mimeType });
+    }
 
     // const languageRaw = form.fields?.language ?? "yue";
     const prompt = form.fields?.prompt;
@@ -100,13 +127,14 @@ async function handleTranscribe(context: Context) {
         dashScopeApiKey: DASHSCOPE_API_KEY,
         dashScopeModel: DASHSCOPE_ASR_MODEL,
         apiKey: OPENROUTER_KEY,
-        model: TRANSCRIPTION_MODEL,
+        model: OPENROUTER_TRANSCRIPTION_MODEL,
         httpReferer: OPENROUTER_HTTP_REFERER,
         siteTitle: OPENROUTER_SITE_TITLE,
       },
       {
         file,
         filename,
+        audioUrl,
         language: "auto",
         expected: expected ? String(expected) : undefined,
         prompt: prompt ? String(prompt) : undefined,
@@ -200,7 +228,8 @@ router
   */
   // Cantonese audio via OpenRouter STT (/v1/audio/transcriptions); translate uses chat completions fallback.
   // Request: multipart/form-data with:
-  // - file: audio file (required)
+  // - file: audio file (required unless audio_url is set)
+  // - audio_url: public http(s) audio URL (alternative to file)
   // - expected: optional target line, disambiguates Cantonese vs Mandarin
   // - prompt: optional
   // - task: optional ("transcribe" | "translate")
@@ -239,7 +268,11 @@ router
   curl "http://localhost:3003/api/to_jyutping?text=长老"
   */
   .get("/api/to_jyutping", handleToJyutping)
-  .post("/api/to_jyutping", handleToJyutping);
+  .post("/api/to_jyutping", handleToJyutping)
+  // One-time OSS upload: get a pre-signed PUT URL, upload from the browser,
+  // then confirm. The returned `url` can be passed to /api/transcribe as audio_url.
+  .post("/api/upload/get_pre_sign", handleGetPreSign)
+  .post("/api/upload/complete", handleUploadComplete);
 
 const app = new Application();
 

@@ -7,12 +7,13 @@ import { calculateTextSimilarity } from "@/utils/textSimilarity";
 import {
   isNonCantoneseSpeechError,
   NON_CANTONESE_FEEDBACK,
+  NON_CANTONESE_SCORE,
   transcribeAudioBlob,
 } from "@/utils/transcribeApi";
 import { IoPulseSharp } from "react-icons/io5";
 
-const LEADERBOARD_SUBMIT_URL =
-  "https://wcn3glqwz3m6.feishu.cn/share/base/form/shrcnxrws3HE37CfOWJgt9VaXqc";
+const LEADERBOARD_WECHAT_QR_URL =
+  "https://dimsum-utils.oss-cn-guangzhou.aliyuncs.com/leeduckgo/qr_code2.png";
 // 静音判定：手机麦克风增益较低，阈值与等待时间略放宽
 const isMobileDevice = () =>
   typeof navigator !== "undefined" &&
@@ -86,7 +87,7 @@ function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
 
 interface WaveRecorderProps {
   onRecordingComplete: (
-    score: number,
+    score: number | string,
     feedback: string,
     transcript: string,
     yueText: string,
@@ -135,6 +136,8 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
   const [recordHintOpen, setRecordHintOpen] = useState(false);
   const [recordedAt, setRecordedAt] = useState<Date | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [leaderboardQrOpen, setLeaderboardQrOpen] = useState(false);
+  const [leaderboardWhyOpen, setLeaderboardWhyOpen] = useState(false);
   const { currentQuestion } = useQuestionStore();
   const { yueText, originalText } = currentQuestion || {};
 
@@ -425,7 +428,7 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
       if (isNonCantoneseSpeechError(err)) {
         setTranscript(err.transcript);
         onRecordingComplete(
-          0,
+          NON_CANTONESE_SCORE,
           NON_CANTONESE_FEEDBACK,
           err.transcript,
           yueText ?? "",
@@ -903,15 +906,95 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
           >
             我要重新录制！
           </button>
-          <a
-            href={LEADERBOARD_SUBMIT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setLeaderboardQrOpen(true)}
             className="whitespace-nowrap rounded-full border border-white px-4 py-2 text-center text-sm text-white transition-colors duration-200 hover:bg-white hover:text-neutral-800 sm:py-1.5"
           >
             <span className="sm:hidden">提交到排行榜 😎</span>
             <span className="hidden sm:inline">将「我的跟读」提交到排行榜&nbsp;😎</span>
-          </a>
+          </button>
+        </div>
+      )}
+      {audioUrl && !transcribing && (
+        <div className="mt-2 px-1 text-center sm:px-0">
+          <button
+            type="button"
+            onClick={() => setLeaderboardWhyOpen(true)}
+            className="text-sm text-green-200/90 underline decoration-green-200/40 underline-offset-2 transition hover:text-green-100 hover:decoration-green-100"
+          >
+            🤔为什么建议将我的跟读提交到排行榜？
+          </button>
+        </div>
+      )}
+      {leaderboardWhyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="为什么建议提交到排行榜"
+          onClick={() => setLeaderboardWhyOpen(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-sm overflow-auto rounded-2xl border border-white/10 bg-[#181b1f] p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-green-200">
+                为什么建议提交到排行榜？
+              </h2>
+              <button
+                type="button"
+                onClick={() => setLeaderboardWhyOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
+                aria-label="关闭"
+              >
+                X
+              </button>
+            </div>
+            <div className="space-y-3 text-sm leading-relaxed text-white/80">
+              <p>当前只是在通过 AI 对你的粤语发音进行评估。</p>
+              <p>提交到排行榜后，粤语专家会人工对你的发音给出专业反馈。</p>
+              <p>同时，还有机会赢得神秘礼物🎁！</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {leaderboardQrOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="提交到排行榜"
+          onClick={() => setLeaderboardQrOpen(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-sm overflow-auto rounded-2xl border border-white/10 bg-[#181b1f] p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-green-200">
+                提交到排行榜
+              </h2>
+              <button
+                type="button"
+                onClick={() => setLeaderboardQrOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
+                aria-label="关闭"
+              >
+                X
+              </button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={LEADERBOARD_WECHAT_QR_URL}
+              alt="微信管理员二维码"
+              className="mx-auto w-full max-w-[260px] rounded-xl bg-white p-2"
+            />
+            <p className="mt-3 text-center text-sm text-white/80">
+              扫码联系「管理员」，提交我的跟读到排行榜！
+            </p>
+          </div>
         </div>
       )}
     </>

@@ -1,8 +1,9 @@
 // Generated from public/gfxm1.csv - 功夫熊猫1
-const categoryGfxmItem = {
-  key: "gfxm1",
-  name: "功夫熊猫1 —— 简单",
-  questions: [
+const categoryGfxm = [
+  {
+    key: "gfxm1",
+    name: "功夫熊猫1 —— 简单",
+    questions: [
       {
         content: "長(zoeng5)老(lau5)。",
         originalText: "长老。",
@@ -32,10 +33,8 @@ const categoryGfxmItem = {
           "https://dimsum-audio.oss-cn-guangzhou.aliyuncs.com/gfxm1/得啦，乌龟長老。.wav",
       },
     ],
-};
+  },
+];
 
-// Export as record for slug lookup: categoryGfxm["gfxm1"]
-const categoryGfxm = { gfxm1: categoryGfxmItem };
-
-export type CategoryGfxm = typeof categoryGfxmItem;
+export type CategoryGfxm = (typeof categoryGfxm)[number];
 export default categoryGfxm;

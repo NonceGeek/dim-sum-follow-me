@@ -366,6 +366,63 @@ export function openRouterHeaders(
   return headers;
 }
 
+/**
+ * Validate a publicly reachable audio URL for DashScope / OpenRouter.
+ * Rejects empty values and non-http(s) schemes.
+ */
+export function parsePublicAudioUrl(raw: string | undefined | null): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("audio_url must be a valid URL");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("audio_url must be an http(s) URL");
+  }
+  return url.toString();
+}
+
+type AudioInputParams = {
+  file?: File;
+  filename?: string;
+  /** Public http(s) URL; DashScope can fetch it without a base64 upload. */
+  audioUrl?: string;
+};
+
+async function resolveAudioDataUri(params: AudioInputParams): Promise<string> {
+  if (params.audioUrl) return params.audioUrl;
+  if (!params.file) throw new Error("file or audio_url is required");
+  const name = params.filename ?? params.file.name ?? "audio";
+  const buf = new Uint8Array(await params.file.arrayBuffer());
+  const mimeType = inferAudioMime(name, params.file.type || "");
+  return `data:${mimeType};base64,${uint8ArrayToBase64(buf)}`;
+}
+
+/** Download a public audio URL into a File (OpenRouter needs bytes/base64). */
+async function fetchAudioUrlAsFile(audioUrl: string, filename?: string): Promise<File> {
+  const resp = await fetch(audioUrl);
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch audio_url (${resp.status})`);
+  }
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  const urlName = (() => {
+    try {
+      const path = new URL(audioUrl).pathname;
+      const base = path.split("/").filter(Boolean).pop();
+      return base ? decodeURIComponent(base) : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+  const name = filename || urlName || "audio";
+  const type = resp.headers.get("content-type") || inferAudioMime(name, "");
+  const arrayBuffer: ArrayBuffer = Uint8Array.from(buf).buffer;
+  return new File([arrayBuffer], name, { type });
+}
+
 /** One Qwen-ASR pass: transcript plus the language code the model reported. */
 type QwenAsrPass = { text: string; rawLanguage?: string };
 
@@ -374,19 +431,13 @@ async function transcribeViaDashScopeQwenAsr(
     apiKey: string;
     model: string;
   },
-  params: {
-    file: File;
-    filename?: string;
+  params: AudioInputParams & {
     /** Omit to auto-detect; set to `yue` to force a Cantonese decode. */
     languageCode?: string;
   },
 ): Promise<QwenAsrPass> {
   const { apiKey, model } = config;
-  const name = params.filename ?? params.file.name ?? "audio";
-  const buf = new Uint8Array(await params.file.arrayBuffer());
-  const base64Audio = uint8ArrayToBase64(buf);
-  const mimeType = inferAudioMime(name, params.file.type || "");
-  const dataUrl = `data:${mimeType};base64,${base64Audio}`;
+  const audioData = await resolveAudioDataUri(params);
 
   const asrOptions: Record<string, unknown> = { enable_itn: false };
   // Omit asr_options.language so the model auto-detects 粤语 / 普通话 / other.
@@ -410,7 +461,7 @@ async function transcribeViaDashScopeQwenAsr(
             content: [
               {
                 type: "input_audio",
-                input_audio: { data: dataUrl },
+                input_audio: { data: audioData },
               },
             ],
           },
@@ -440,9 +491,7 @@ async function transcribeViaDashScope(
     apiKey: string;
     model: string;
   },
-  params: {
-    file: File;
-    filename?: string;
+  params: AudioInputParams & {
     language?: string;
     expected?: string;
     prompt?: string;
@@ -452,6 +501,11 @@ async function transcribeViaDashScope(
   const { apiKey, model } = config;
   const lang = (params.language ?? "auto").trim().toLowerCase();
   const task = params.task === "translate" ? "translate" : "transcribe";
+  const audioSource: AudioInputParams = {
+    file: params.file,
+    filename: params.filename,
+    audioUrl: params.audioUrl,
+  };
 
   if (task === "translate") {
     const transcribed = await transcribeViaDashScope(config, {
@@ -461,9 +515,9 @@ async function transcribeViaDashScope(
     const transcribedText = transcribed.text;
 
     let instruction =
-      "Translate the following text into clear English. Output only the English translation, no labels or commentary.";
+      "把下面的文字翻译成地道的书面粤语（用繁体字）。只输出粤语译文，不要标签或解释。";
     if (params.prompt?.trim()) {
-      instruction += ` Additional context: ${params.prompt.trim()}`;
+      instruction += ` 补充说明：${params.prompt.trim()}`;
     }
 
     const resp = await fetch(
@@ -479,7 +533,7 @@ async function transcribeViaDashScope(
           messages: [
             {
               role: "user",
-              content: `${instruction}\n\nText to translate:\n${transcribedText}`,
+              content: `${instruction}\n\n待翻译文本：\n${transcribedText}`,
             },
           ],
         }),
@@ -494,7 +548,7 @@ async function transcribeViaDashScope(
     const data = await resp.json();
     return {
       text: data.choices?.[0]?.message?.content?.trim() ?? "",
-      // `text` is English now, so keep the language of the *spoken* audio.
+      // Translation target is Cantonese; keep spoken-audio lang from the ASR step.
       lang: transcribed.lang,
       langSource: transcribed.langSource,
       rawLanguage: transcribed.rawLanguage,
@@ -503,17 +557,19 @@ async function transcribeViaDashScope(
 
   const asrConfig = { apiKey, model: model || "qwen3-asr-flash" };
   const expected = params.expected?.trim() ?? "";
+  // Public URLs skip the base64 size cap; uploaded files above the limit go
+  // straight to Paraformer.
+  const skipInlineQwen =
+    !params.audioUrl &&
+    Boolean(params.file && params.file.size > DASHSCOPE_INLINE_AUDIO_BYTES);
 
-  if (params.file.size > DASHSCOPE_INLINE_AUDIO_BYTES) {
+  if (skipInlineQwen) {
     console.warn(
-      `Audio is ${params.file.size} bytes, above the ${DASHSCOPE_INLINE_AUDIO_BYTES} inline limit; skipping Qwen-ASR`,
+      `Audio is ${params.file!.size} bytes, above the ${DASHSCOPE_INLINE_AUDIO_BYTES} inline limit; skipping Qwen-ASR`,
     );
   } else {
     try {
-      const autoPass = await transcribeViaDashScopeQwenAsr(asrConfig, {
-        file: params.file,
-        filename: params.filename,
-      });
+      const autoPass = await transcribeViaDashScopeQwenAsr(asrConfig, audioSource);
       const cls = classifyLanguageCode(autoPass.rawLanguage);
 
       // `yue`, `cmn`, `en`, … are decisive; only the `zh` umbrella is not.
@@ -532,8 +588,7 @@ async function transcribeViaDashScope(
       if (expected) {
         try {
           const yuePass = await transcribeViaDashScopeQwenAsr(asrConfig, {
-            file: params.file,
-            filename: params.filename,
+            ...audioSource,
             languageCode: "yue",
           });
           const decided = decideLangByExpected(
@@ -564,10 +619,7 @@ async function transcribeViaDashScope(
     }
   }
 
-  const buf = new Uint8Array(await params.file.arrayBuffer());
-  const base64Audio = uint8ArrayToBase64(buf);
-  const mimeType = params.file.type || "audio/m4a";
-  const dataUrl = `data:${mimeType};base64,${base64Audio}`;
+  const fileUrl = await resolveAudioDataUri(audioSource);
   const languageHints = dashScopeLanguageHints(lang);
 
   const submitResp = await fetch(
@@ -582,7 +634,7 @@ async function transcribeViaDashScope(
       body: JSON.stringify({
         model: "paraformer-v2",
         input: {
-          file_urls: [dataUrl],
+          file_urls: [fileUrl],
         },
         parameters: {
           language_hints: languageHints,
@@ -653,19 +705,23 @@ async function transcribeViaOpenRouter(
     httpReferer?: string;
     siteTitle?: string;
   },
-  params: {
-    file: File;
-    filename?: string;
+  params: AudioInputParams & {
     language?: string;
     prompt?: string;
     task?: "transcribe" | "translate";
   },
 ): Promise<TranscribeResult> {
   const { apiKey, model, httpReferer = "", siteTitle = "" } = config;
-  const name = params.filename ?? params.file.name ?? "audio";
-  const buf = new Uint8Array(await params.file.arrayBuffer());
+  // OpenRouter needs bytes; if only a public URL was given, download it first.
+  const file = params.file ??
+    (params.audioUrl
+      ? await fetchAudioUrlAsFile(params.audioUrl, params.filename)
+      : undefined);
+  if (!file) throw new Error("file or audio_url is required");
+  const name = params.filename ?? file.name ?? "audio";
+  const buf = new Uint8Array(await file.arrayBuffer());
   const base64Audio = uint8ArrayToBase64(buf);
-  const format = inferAudioFormat(name, params.file.type || "");
+  const format = inferAudioFormat(name, file.type || "");
   const headers = openRouterHeaders(apiKey, httpReferer, siteTitle);
 
   const lang = (params.language ?? "auto").trim().toLowerCase();
@@ -677,7 +733,7 @@ async function transcribeViaOpenRouter(
       task: "transcribe",
     });
     let instruction =
-      "Listen to this audio and translate the speech into clear English. Output only the English translation, no labels or commentary.";
+      "Listen to this audio and translate the speech into natural written Cantonese (Traditional Chinese). Output only the Cantonese text, no labels or commentary.";
     if (params.prompt?.trim()) {
       instruction += ` Additional context: ${params.prompt.trim()}`;
     }
@@ -755,9 +811,7 @@ export async function transcribeCantoneseAudio(
     httpReferer?: string;
     siteTitle?: string;
   },
-  params: {
-    file: File;
-    filename?: string;
+  params: AudioInputParams & {
     language?: string;
     /** The line the speaker was asked to read; disambiguates a `zh` annotation. */
     expected?: string;
@@ -765,6 +819,10 @@ export async function transcribeCantoneseAudio(
     task?: "transcribe" | "translate";
   },
 ): Promise<TranscribeResult> {
+  if (!params.file && !params.audioUrl) {
+    throw new Error("file or audio_url is required");
+  }
+
   if (config.dashScopeApiKey) {
     try {
       return applySimplifiedMandarinOverride(

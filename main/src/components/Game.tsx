@@ -11,7 +11,7 @@ export interface GameHandle {
 export interface QuestionResult {
   transcript: string;
   yueText: string;
-  score: number;
+  score: number | string;
   feedback: string;
   recordingBlob?: Blob | null;
 }
@@ -20,7 +20,7 @@ const Game = forwardRef<
   GameHandle,
   { getResult: any; onResult?: (result: QuestionResult) => void }
 >(({ getResult, onResult }, ref) => {
-  const [score, setScore] = useState(0);
+  const [score, setScore] = useState<number | string>(0);
   const [feedback, setFeedback] = useState("");
   const [showScore, setShowScore] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -30,7 +30,7 @@ const Game = forwardRef<
 
   // 处理录音完成，记录识别结果、粤语原文和得分
   const handleRecordingComplete = (
-    score: number,
+    score: number | string,
     feedback: string,
     transcript: string,
     yueText: string,
@@ -63,7 +63,7 @@ const Game = forwardRef<
 
   return (
     <main className="container mx-auto max-w-4xl px-1 py-4 sm:px-0 sm:py-8">
-      {score > 70 && (
+      {typeof score === "number" && score > 70 && (
         <CelebrationEffect type={"confetti"} message={"发音很棒"} />
       )}
       <WaveRecorder

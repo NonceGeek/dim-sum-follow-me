@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import {
   applySimplifiedMandarinOverride,
   classifyLanguageCode,
@@ -7,11 +7,25 @@ import {
   decideLangByExpected,
   inferAudioFormat,
   isSimplifiedChinese,
+  parsePublicAudioUrl,
   rawLanguageFromAsrPayload,
   resolveAmbiguousLang,
   sttLanguageHint,
   textSimilarity,
 } from "./audio_utils.ts";
+
+Deno.test("parsePublicAudioUrl accepts http(s) and rejects bad schemes", () => {
+  assertEquals(
+    parsePublicAudioUrl(
+      "https://dimsum-audio.oss-cn-guangzhou.aliyuncs.com/gfxm1/長老。.wav",
+    ),
+    "https://dimsum-audio.oss-cn-guangzhou.aliyuncs.com/gfxm1/%E9%95%B7%E8%80%81%E3%80%82.wav",
+  );
+  assertEquals(parsePublicAudioUrl("  "), undefined);
+  assertEquals(parsePublicAudioUrl(undefined), undefined);
+  assertThrows(() => parsePublicAudioUrl("not-a-url"), Error, "valid URL");
+  assertThrows(() => parsePublicAudioUrl("file:///tmp/a.wav"), Error, "http(s)");
+});
 
 Deno.test("inferAudioFormat from extension", () => {
   assertEquals(inferAudioFormat("recording.wav", ""), "wav");
