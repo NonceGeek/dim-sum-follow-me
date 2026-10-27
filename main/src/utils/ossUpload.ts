@@ -1,12 +1,13 @@
 /**
- * Browser → Aliyun OSS PostObject (direct upload).
+ * Browser → Aliyun OSS signed PUT (direct upload).
  *
  * Flow:
- * 1. POST Deno `/api/upload/get_pre_sign` → upload_url + form_fields + upload_token
- * 2. POST upload_url (OSS) with form_fields + file (last) — same as curl PostObject
+ * 1. POST Deno `/api/upload/get_pre_sign` → upload_url + headers + upload_token
+ * 2. PUT upload_url with Content-Type + x-oss-forbid-overwrite + raw body
+ *    (same as: curl -X PUT "$upload_url" -H "Content-Type: …" -H "x-oss-forbid-overwrite: true" --data-binary @file)
  * 3. POST Deno `/api/upload/complete` → verified public url
  *
- * Requires: bucket CORS allows this page Origin (POST), and the browser can
+ * Requires: bucket CORS allows this page Origin (PUT), and the browser can
  * reach *.aliyuncs.com (local proxy/TUN must not hijack OSS DNS).
  */
 
@@ -32,7 +33,7 @@ type PreSignResponse = {
   key: string;
   upload_url: string;
   method: string;
-  form_fields: Record<string, string>;
+  headers: Record<string, string>;
   public_url: string;
   expires_at: string;
   upload_token: string;
@@ -54,12 +55,6 @@ function normalizeContentType(blob: Blob): string {
   throw new Error(
     `不支持的音频格式: ${raw || "(empty)"}. 仅支持 wav / m4a / mp3`,
   );
-}
-
-function extensionForContentType(contentType: string): string {
-  if (contentType.includes("mpeg") || contentType === "audio/mp3") return "mp3";
-  if (contentType.includes("m4a") || contentType === "audio/mp4") return "m4a";
-  return "wav";
 }
 
 async function readJsonError(res: Response): Promise<string> {
@@ -85,7 +80,7 @@ async function readOssError(res: Response): Promise<string> {
   return detail;
 }
 
-/** Upload an audio blob straight to OSS; return the verified public URL. */
+/** Upload an audio blob straight to OSS via signed PUT; return the verified public URL. */
 export async function uploadAudioToOss(
   blob: Blob,
   options?: { onProgress?: (message: string) => void },
@@ -104,42 +99,30 @@ export async function uploadAudioToOss(
     throw new Error(`申请上传失败: ${await readJsonError(preRes)}`);
   }
   const pre = (await preRes.json()) as PreSignResponse;
-  if (!pre.upload_url || !pre.form_fields || !pre.key || !pre.upload_token) {
+  if (!pre.upload_url || !pre.headers || !pre.key || !pre.upload_token) {
     throw new Error("申请上传失败: 返回数据不完整");
   }
   if (typeof pre.max_bytes === "number" && blob.size > pre.max_bytes) {
     throw new Error(`文件过大: 最大 ${pre.max_bytes} 字节`);
   }
 
-  // 2) browser → OSS PostObject (must match curl: fields then file last)
+  // 2) browser → OSS signed PUT (raw body + exact signed headers)
   report?.("正在上传音频…");
-  const form = new FormData();
-  for (const [name, value] of Object.entries(pre.form_fields)) {
-    form.append(name, value);
-  }
-  const partType = pre.form_fields["Content-Type"] || contentType;
-  form.append(
-    "file",
-    new Blob([blob], { type: partType }),
-    `audio.${extensionForContentType(partType)}`,
-  );
-
   let putRes: Response;
   try {
-    // Do not set Content-Type header — browser sets multipart boundary.
     putRes = await fetch(pre.upload_url, {
-      method: pre.method || "POST",
-      body: form,
+      method: pre.method || "PUT",
+      headers: pre.headers,
+      body: blob,
     });
   } catch (err) {
     throw new Error(
       `上传到 OSS 失败（网络或 CORS）: ${
         err instanceof Error ? err.message : String(err)
-      }。请确认 bucket CORS 允许当前 Origin 的 POST，且代理未劫持 *.aliyuncs.com（fake-ip / TUN 常导致 TLS 失败）`,
+      }。请确认 bucket CORS 允许当前 Origin 的 PUT，且代理未劫持 *.aliyuncs.com`,
     );
   }
-  // success_action_status=200 → 200; older forms may return 204
-  if (!putRes.ok && putRes.status !== 204) {
+  if (!putRes.ok) {
     throw new Error(`上传到 OSS 失败: ${await readOssError(putRes)}`);
   }
 

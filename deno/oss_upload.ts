@@ -235,18 +235,23 @@ export async function handleGetPreSign(context: Context) {
 
     const key = buildObjectKey(extension);
     const expires = Math.floor(Date.now() / 1000) + OSS_UPLOAD_EXPIRES_SECONDS;
-    const formFields = await buildPostObjectForm({
+    const headers = {
+      "Content-Type": contentType,
+      [FORBID_OVERWRITE_HEADER]: "true",
+    };
+    const uploadUrl = await presignObjectUrl({
+      method: "PUT",
       key,
-      contentType,
       expires,
-      maxBytes: OSS_UPLOAD_MAX_BYTES,
+      contentType,
+      ossHeaders: { [FORBID_OVERWRITE_HEADER]: "true" },
     });
 
     context.response.body = {
       key,
-      upload_url: `https://${ossHost()}`,
-      method: "POST",
-      form_fields: formFields,
+      upload_url: uploadUrl,
+      method: "PUT",
+      headers,
       public_url: publicObjectUrl(key),
       expires_at: new Date(expires * 1000).toISOString(),
       upload_token: await signUploadToken(key, expires),
@@ -291,7 +296,7 @@ export async function handleUploadComplete(context: Context) {
     const resp = await fetch(headUrl, { method: "HEAD" });
     if (resp.status === 404) {
       context.response.status = 404;
-      context.response.body = { error: "Upload not found; POST the file first", key };
+      context.response.body = { error: "Upload not found; PUT the file first", key };
       return;
     }
     if (!resp.ok) {

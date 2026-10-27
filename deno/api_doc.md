@@ -329,18 +329,18 @@ curl -X POST http://localhost:3003/api/to_jyutping \
 
 ---
 
-## Upload (OSS direct upload)
+## Upload (OSS signed PUT)
 
 Lets the browser upload audio straight to Aliyun OSS without passing bytes through this server. Flow:
 
-1. `POST /api/upload/get_pre_sign` → get a one-time OSS PostObject form (`upload_url` + `form_fields`)
-2. Browser `POST`s a `multipart/form-data` body to `upload_url`: every entry of `form_fields`, then the file as `file` (must be the last field)
+1. `POST /api/upload/get_pre_sign` → one-time signed PUT `upload_url` + `headers`
+2. Browser `PUT`s the raw file to `upload_url` with exactly the returned `headers`
 3. `POST /api/upload/complete` → server confirms the object exists and returns its `url`
 4. Optionally pass `url` to `POST /api/transcribe` as `audio_url`
 
-The form uses a signed OSS **policy**, so OSS itself enforces the limits: the `key` and `Content-Type` must match exactly, and the file must be between 1 byte and `OSS_UPLOAD_MAX_BYTES` (larger uploads are rejected by OSS with `400 EntityTooLarge` and never stored). The policy expires after `OSS_UPLOAD_EXPIRES_SECONDS`. Each call generates a fresh random `key`, so clients cannot choose or overwrite paths. The form also sends `x-oss-forbid-overwrite: true`, so a second upload to the same `key` fails with `409 FileAlreadyExists`.
+The URL is signed with `Content-Type` and `x-oss-forbid-overwrite: true`, so a second PUT to the same key fails with `409 FileAlreadyExists`. It expires after `OSS_UPLOAD_EXPIRES_SECONDS`. Each call generates a fresh random `key`. Optional `size` is checked early on `get_pre_sign` / again on `complete` (PUT signatures cannot enforce a byte range themselves).
 
-**OSS bucket setup:** add a CORS rule allowing `POST` from your frontend origin (allowed headers `*`). The returned `public_url` / `url` is only readable if the bucket (or prefix) is public-read.
+**OSS bucket setup:** CORS must allow `PUT` from your frontend origin; allowed headers include `Content-Type` and `x-oss-forbid-overwrite` (or `*`). The returned `public_url` / `url` is only readable if the bucket (or prefix) is public-read.
 
 ### `POST /api/upload/get_pre_sign`
 
@@ -348,58 +348,50 @@ The form uses a signed OSS **policy**, so OSS itself enforces the limits: the `k
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `content_type` | Yes | wav: `audio/wav`, `audio/x-wav`, `audio/wave`; m4a: `audio/mp4`, `audio/x-m4a`, `audio/m4a`; mp3: `audio/mpeg`, `audio/mp3`. It is locked into the signed policy, so the upload must use the returned `Content-Type` field unchanged |
+| `content_type` | Yes | wav: `audio/wav`, `audio/x-wav`, `audio/wave`; m4a: `audio/mp4`, `audio/x-m4a`, `audio/m4a`; mp3: `audio/mpeg`, `audio/mp3`. Signed into the URL — the PUT must send the same `Content-Type` |
 | `size` | No | Bytes; rejected early with `413` if above `OSS_UPLOAD_MAX_BYTES` |
 
 ```bash
 curl --noproxy '*' -X POST http://127.0.0.1:3003/api/upload/get_pre_sign \
   -H "Content-Type: application/json" \
-  -d '{"content_type":"audio/wav","size":123456}'
+  -d '{"content_type":"audio/m4a","size":123456}'
 ```
 
 **Response** `200`
 
 ```json
 {
-  "key": "uploads/20261024/2f1c…-…-….wav",
-  "upload_url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com",
-  "method": "POST",
-  "form_fields": {
-    "key": "uploads/20261024/2f1c….wav",
-    "Content-Type": "audio/wav",
-    "x-oss-forbid-overwrite": "true",
-    "OSSAccessKeyId": "LTAI…",
-    "policy": "eyJleHBpcmF0aW9uIjoi…",
-    "Signature": "pW4f…="
+  "key": "uploads/20261024/1e4e….m4a",
+  "upload_url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com/uploads/20261024/1e4e….m4a?OSSAccessKeyId=…&Expires=…&Signature=…",
+  "method": "PUT",
+  "headers": {
+    "Content-Type": "audio/m4a",
+    "x-oss-forbid-overwrite": "true"
   },
-  "public_url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com/uploads/20261024/2f1c….wav",
-  "expires_at": "2026-10-24T06:48:00.000Z",
-  "upload_token": "1793170080.k3J…",
+  "public_url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com/uploads/20261024/1e4e….m4a",
+  "expires_at": "2026-10-24T08:06:03.000Z",
+  "upload_token": "1792829163.tUZ…",
   "max_bytes": 5242880
 }
 ```
 
-Upload with every returned form field unchanged, followed by `file` last. OSS checks the `Content-Type` condition against the **file part's own MIME type**, so the file part must be sent with exactly `content_type` (otherwise `403 AccessDenied … Policy Condition failed`). OSS returns `204` on success:
+Upload with the returned method and headers unchanged:
 
 ```bash
-curl -X POST "<upload_url>" \
-  -F "key=<form_fields.key>" \
-  -F "Content-Type=audio/wav" \
-  -F "x-oss-forbid-overwrite=true" \
-  -F "OSSAccessKeyId=<form_fields.OSSAccessKeyId>" \
-  -F "policy=<form_fields.policy>" \
-  -F "Signature=<form_fields.Signature>" \
-  -F "file=@recording.wav;type=audio/wav"
+curl -X PUT "<upload_url>" \
+  -H "Content-Type: audio/m4a" \
+  -H "x-oss-forbid-overwrite: true" \
+  --data-binary @recording.m4a
 ```
 
 Browser:
 
 ```js
-const form = new FormData();
-for (const [name, value] of Object.entries(pre.form_fields)) form.append(name, value);
-// must be last; re-wrap so the part's MIME type equals the requested content_type
-form.append("file", new Blob([file], { type: pre.form_fields["Content-Type"] }));
-await fetch(pre.upload_url, { method: pre.method, body: form });
+await fetch(pre.upload_url, {
+  method: pre.method, // "PUT"
+  headers: pre.headers,
+  body: file,
+});
 ```
 
 ### `POST /api/upload/complete`
@@ -409,22 +401,22 @@ await fetch(pre.upload_url, { method: pre.method, body: form });
 | Field | Required | Description |
 |-------|----------|-------------|
 | `key` | Yes | `key` from `get_pre_sign` |
-| `upload_token` | Yes | `upload_token` from `get_pre_sign`; valid until 1 hour after the upload form expires |
+| `upload_token` | Yes | `upload_token` from `get_pre_sign`; valid until 1 hour after the URL expires |
 
 ```bash
 curl --noproxy '*' -X POST http://127.0.0.1:3003/api/upload/complete \
   -H "Content-Type: application/json" \
-  -d '{"key":"uploads/20261024/2f1c….wav","upload_token":"1793170080.k3J…"}'
+  -d '{"key":"uploads/20261024/1e4e….m4a","upload_token":"1792829163.tUZ…"}'
 ```
 
 **Response** `200`
 
 ```json
 {
-  "key": "uploads/20261024/2f1c….wav",
-  "url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com/uploads/20261024/2f1c….wav",
+  "key": "uploads/20261024/1e4e….m4a",
+  "url": "https://dimsum-fo.oss-cn-guangzhou.aliyuncs.com/uploads/20261024/1e4e….m4a",
   "size": 123456,
-  "content_type": "audio/wav",
+  "content_type": "audio/m4a",
   "etag": "5B3C1A2E053D763E1B002CC607C5A0FE"
 }
 ```
@@ -439,13 +431,12 @@ curl --noproxy '*' -X POST http://127.0.0.1:3003/api/upload/complete \
 | `413` | both | File larger than `OSS_UPLOAD_MAX_BYTES` |
 | `500` | both | OSS credentials not configured, or OSS error |
 
-Errors returned by **OSS** on the form `POST` (XML body, `<Code>`):
+Errors returned by **OSS** on the signed `PUT` (XML body, `<Code>`):
 
 | Status | Code | Reason |
 |--------|------|--------|
-| `400` | `EntityTooLarge` | File larger than `OSS_UPLOAD_MAX_BYTES`; nothing is stored |
-| `403` | `AccessDenied` | Policy expired, or the file part's MIME type / `key` differs from the form fields |
-| `409` | `FileAlreadyExists` | This form was already used; call `get_pre_sign` again |
+| `403` | `AccessDenied` / `SignatureDoesNotMatch` | URL expired, or `Content-Type` / `x-oss-forbid-overwrite` differs from the signed headers |
+| `409` | `FileAlreadyExists` | This URL was already used; call `get_pre_sign` again |
 
 ---
 
@@ -660,7 +651,7 @@ curl -X DELETE http://localhost:3003/api/libs/1 \
 | POST | `/api/transcribe` | `DASHSCOPE_API_KEY` / `API_KEY` | Transcribe audio and return `lang` (`cantonese` / `mandarin` / `other`) plus `lang_source` |
 | POST | `/api/trans_cantonese` | `DASHSCOPE_API_KEY` / `API_KEY` | Transcribe (legacy alias of `/api/transcribe`) |
 | GET/POST | `/api/to_jyutping` | — | Text → Jyutping |
-| POST | `/api/upload/get_pre_sign` | `ALI_OSS_ACCESS_KEY_*` | Issue a one-time OSS PostObject upload form (size-limited) |
+| POST | `/api/upload/get_pre_sign` | `ALI_OSS_ACCESS_KEY_*` | Issue a one-time signed OSS PUT URL |
 | POST | `/api/upload/complete` | `ALI_OSS_ACCESS_KEY_*` | Verify the upload exists and return its URL |
 | GET | `/api/libs` | — | List libraries |
 | GET | `/api/libs/:id` | — | Get library |
