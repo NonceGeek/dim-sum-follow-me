@@ -33,12 +33,14 @@ export function isNonCantoneseSpeechError(
   );
 }
 
-/** ASR 明确标成 `yue` 才算粤语；`zh` / 缺失 / 其他语种一律按非粤语处理。 */
+/** ASR 标成 `yue` 或 `zh` 都按粤语处理；缺失 / 其他语种一律按非粤语处理。 
+ * TODO: 未来有对语言判断更加准确的垂直模型。
+ * 
+*/
 function isYueRawLanguage(rawLanguage: unknown): boolean {
-  return (
-    typeof rawLanguage === "string" &&
-    rawLanguage.trim().toLowerCase() === "yue"
-  );
+  if (typeof rawLanguage !== "string") return false;
+  const code = rawLanguage.trim().toLowerCase();
+  return code === "yue" || code === "zh";
 }
 
 export type TranscribeProgressReporter = (message: string) => void;

@@ -10,7 +10,7 @@ import {
 } from "@/utils/leaderboard";
 
 export const metadata: Metadata = {
-  title: "排行榜 | 跟住读",
+  title: "排行榜 | 点心粤语跟读",
   description: "粤语跟读排行榜",
 };
 
