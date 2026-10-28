@@ -43,6 +43,14 @@ export default function Header() {
             <Link href="/whitepaper" className={navLinkClass}>
               👉说明书👈
             </Link>
+            <Link
+              href="https://lang-bot.aidimsum.com/pet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={navLinkClass}
+            >
+              同包仔学粤语！
+            </Link>
             <button
               type="button"
               onClick={() => setShowMiniProgram(true)}
