@@ -286,6 +286,7 @@ async function transcribeViaOssAudioUrl(
   }
 
   const audioUrl = await uploadAudioToOss(blob, { onProgress });
+  console.log("upload audio_url", audioUrl);
 
   onProgress?.("正在 AI 语音识别…");
   const formData = new FormData();

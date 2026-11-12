@@ -293,7 +293,11 @@ export async function handleUploadComplete(context: Context) {
       key,
       expires: Math.floor(Date.now() / 1000) + 60,
     });
-    const resp = await fetch(headUrl, { method: "HEAD" });
+    // Bounded so a slow OSS round-trip fails with our 500 (with CORS) instead of a platform timeout.
+    const resp = await fetch(headUrl, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(8000),
+    });
     if (resp.status === 404) {
       context.response.status = 404;
       context.response.body = { error: "Upload not found; PUT the file first", key };

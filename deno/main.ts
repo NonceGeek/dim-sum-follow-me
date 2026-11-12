@@ -276,6 +276,9 @@ router
 
 const app = new Application();
 
+// First, so error responses (incl. the 500 handler below) still carry CORS headers.
+app.use(oakCors());
+
 app.use(async (context, next) => {
   try {
     await next();
@@ -296,7 +299,6 @@ app.use(async (context, next) => {
   console.log(`${context.request.method} ${context.request.url} - ${ms}ms`);
 });
 
-app.use(oakCors());
 app.use(router.routes());
 
 const port = Number(Deno.env.get("PORT") || "3003");

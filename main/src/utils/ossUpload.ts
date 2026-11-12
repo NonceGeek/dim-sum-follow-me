@@ -126,18 +126,26 @@ export async function uploadAudioToOss(
     throw new Error(`上传到 OSS 失败: ${await readOssError(putRes)}`);
   }
 
-  // 3) complete
+  // 3) complete — best-effort: OSS already accepted the PUT, so public_url is valid
+  // even if this confirmation call fails (e.g. backend timeout / CORS on error).
   report?.("正在确认上传…");
-  const completeRes = await fetch(`${API_BASE()}/api/upload/complete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: pre.key, upload_token: pre.upload_token }),
-  });
-  if (!completeRes.ok) {
-    throw new Error(`确认上传失败: ${await readJsonError(completeRes)}`);
+  try {
+    const completeRes = await fetch(`${API_BASE()}/api/upload/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: pre.key, upload_token: pre.upload_token }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (completeRes.ok) {
+      const complete = (await completeRes.json()) as CompleteResponse;
+      if (complete.url) return complete.url;
+    } else {
+      console.warn("确认上传失败，改用 public_url:", await readJsonError(completeRes));
+    }
+  } catch (err) {
+    console.warn("确认上传请求失败，改用 public_url:", err);
   }
-  const complete = (await completeRes.json()) as CompleteResponse;
-  const url = complete.url || pre.public_url;
-  if (!url) throw new Error("确认上传失败: 缺少文件地址");
-  return url;
+
+  if (!pre.public_url) throw new Error("上传失败: 缺少文件地址");
+  return pre.public_url;
 }

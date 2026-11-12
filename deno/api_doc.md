@@ -203,8 +203,8 @@ Or pass a public audio URL (DashScope pulls the file itself — faster for OSS c
 ```bash
 curl --noproxy '*' -X POST http://127.0.0.1:3003/api/transcribe \
   -F "audio_url=https://dimsum-audio.oss-cn-guangzhou.aliyuncs.com/gfxm1/長老。.wav" \
-  -F "task=transcribe" \
-  -F "prompt=Casual Cantonese conversation"
+  -F "task=transcribe"
+  # -F "prompt=Casual Cantonese conversation"
 ```
 
 Translate into written Cantonese:
@@ -212,8 +212,8 @@ Translate into written Cantonese:
 ```bash
 curl --noproxy '*' -X POST http://127.0.0.1:3003/api/transcribe \
   -F "file=@main/public/audio/yue1.m4a" \
-  -F "task=translate" \
-  -F "prompt=Casual Cantonese conversation"
+  -F "task=translate"
+  # -F "prompt=Casual Cantonese conversation"
 ```
 
 **Response** `200` (`task=transcribe` or already-Cantonese audio under `task=translate`):
