@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
+import LeaderboardPlayButton from "@/components/LeaderboardPlayButton";
 import {
   formatLeaderboardDate,
   parseLeaderboardCsv,
@@ -80,12 +81,7 @@ export default function LeaderboardPage() {
                     </td>
                     <td className="px-4 py-4">
                       {entry.audio ? (
-                        <audio
-                          controls
-                          preload="none"
-                          src={entry.audio}
-                          className="h-8 w-44 max-w-full"
-                        />
+                        <LeaderboardPlayButton src={entry.audio} />
                       ) : (
                         "—"
                       )}
