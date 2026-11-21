@@ -7,6 +7,8 @@ import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
 import { fetchJyutpingContent } from "@/utils/jyutpingApi";
 import { buildFreeShadowingShareUrl } from "@/utils/customShadowing";
+import { Button } from "@/components/ui/button";
+import { Paper } from "@/components/ui/paper";
 
 interface Question {
   content?: string;
@@ -112,41 +114,51 @@ export default function FollowItemView({
   };
 
   return (
-    <div className="">
-      <button className="ml-5 mt-5" onClick={goBack}>
+    <div className="mx-auto max-w-4xl">
+      <Button variant="ghost" size="sm" className="ml-3 mt-5" onClick={goBack}>
         {"<返回"}
-      </button>
+      </Button>
       <div className="wrapper px-4 py-4">
         <div className="text-content">
-          <div className="ml-3 mt-3 flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 flex-1 items-baseline">
+          <div className="ml-1 mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-baseline text-ink-soft">
               <span className="shrink-0">原文:&nbsp;</span>
-              <p className="min-w-0">{currentQ?.originalText}</p>
+              <p className="min-w-0 text-ink">{currentQ?.originalText}</p>
             </div>
             {canShareLink && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={copyShareLink}
-                className="w-full shrink-0 whitespace-nowrap rounded-lg border border-green-200/60 px-3 py-1.5 text-sm text-green-200 transition hover:bg-green-200/10 sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 {shareCopied ? "已复制链接！" : "👉复制分享链接"}
-              </button>
+              </Button>
             )}
           </div>
-          <div
+          <Paper
             key={`${quesNumber}-${displayContent}`}
-            className="text-item relative mt-4 break-words rounded-2xl border-3 border-green-200 px-3 py-4 text-base font-bold leading-relaxed sm:text-lg sm:leading-12"
+            stock="pad"
+            rules="ruled"
+            tape="top"
+            seed={`follow-${quesNumber}`}
+            className="text-item relative mt-5 break-words pt-4 pr-4 pb-2 pl-14 text-lg font-bold leading-7"
           >
             {displayContent}
             {!isVideoMode && (
-              <div
-                className="audio-icon text-2xl z-1000 h-[24px]"
-                onClick={playReference}
-              >
-                <IoVolumeMediumSharp className="float-right" />
+              <div className="audio-icon flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="播放原声"
+                  onClick={playReference}
+                >
+                  <IoVolumeMediumSharp className="size-6" />
+                </Button>
               </div>
             )}
-          </div>
+          </Paper>
 
           {isVideoMode ? (
             <div className="mt-4 flex justify-center">
@@ -156,7 +168,7 @@ export default function FollowItemView({
                 playsInline
                 preload="metadata"
                 src={currentQ?.videoUrl}
-                className="w-full max-w-2xl rounded-xl border border-green-200/30"
+                className="w-full max-w-2xl rounded-sm border border-pencil-mark"
               />
             </div>
           ) : (
@@ -168,36 +180,33 @@ export default function FollowItemView({
         <div className="setting-wrapper mt-4 flex flex-col">
           <div className="speed-setting flex mt-3">
             <div className="flex-1 text-center">
-              <button
-                className={classNames("leading-8 border-2 rounded-2xl", {
-                  "px-5 border-green-200 text-green-200": !isAudoSlowSpeed,
-                  "text-gray-400 border-transparent": isAudoSlowSpeed,
-                })}
+              <Button
+                variant={isAudoSlowSpeed ? "ghost" : "secondary"}
+                className={classNames({ "text-pencil-text": isAudoSlowSpeed })}
                 onClick={() => changePlaybackRate(1)}
               >
                 正常
-              </button>
+              </Button>
             </div>
             <div className="flex-1 text-center">
-              <button
-                className={classNames("leading-8 border-2 rounded-2xl", {
-                  "px-5 border-green-200 text-green-200": isAudoSlowSpeed,
-                  "text-gray-400 border-transparent": !isAudoSlowSpeed,
-                })}
+              <Button
+                variant={isAudoSlowSpeed ? "secondary" : "ghost"}
+                className={classNames({ "text-pencil-text": !isAudoSlowSpeed })}
                 onClick={() => changePlaybackRate(0.5)}
               >
                 慢速
-              </button>
+              </Button>
             </div>
           </div>
         </div>
         <Game getResult={getResult} />
 
         {hasResult && questions.length > 1 && (
-          <div className="question-setting flex-col flex mb-20">
+          <div className="question-setting mb-20 flex flex-col gap-3">
             <div className="w-full">
-              <button
-                className="px-3 py-1 w-full"
+              <Button
+                variant="ghost"
+                className="w-full"
                 onClick={() => {
                   const num = Math.max(quesNumber - 1, 0);
                   setQuesNumber(num);
@@ -205,11 +214,11 @@ export default function FollowItemView({
                 }}
               >
                 上一题
-              </button>
+              </Button>
             </div>
             <div className="w-full">
-              <button
-                className="color-grey-200 leading-8 w-full border-green-200 border-2 rounded-2xl"
+              <Button
+                className="w-full"
                 onClick={() => {
                   const num = Math.min(
                     quesNumber + 1,
@@ -220,7 +229,7 @@ export default function FollowItemView({
                 }}
               >
                 下一题
-              </button>
+              </Button>
             </div>
           </div>
         )}

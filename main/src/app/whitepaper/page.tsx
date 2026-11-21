@@ -5,6 +5,8 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { headingAnchorId, headingText } from "@/utils/headingAnchor";
+import { Button } from "@/components/ui/button";
+import { Paper } from "@/components/ui/paper";
 
 function headingWithAnchor(
   Tag: "h1" | "h2" | "h3",
@@ -32,7 +34,7 @@ const markdownComponents: Components = {
       return (
         <a
           href={href}
-          className="text-green-400 underline decoration-green-500/50 underline-offset-2 hover:text-green-300"
+          className="text-link underline decoration-marker/60 underline-offset-2 hover:text-link-hover"
         >
           {children}
         </a>
@@ -43,7 +45,7 @@ const markdownComponents: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-green-400 underline decoration-green-500/50 underline-offset-2 hover:text-green-300"
+        className="text-link underline decoration-marker/60 underline-offset-2 hover:text-link-hover"
       >
         {children}
       </a>
@@ -60,8 +62,8 @@ const markdownComponents: Components = {
         alt={alt ?? ""}
         className={
           isQr
-            ? "my-4 w-full max-w-[170px] rounded-xl border border-white/10"
-            : "my-4 w-full max-w-lg rounded-xl border border-white/10"
+            ? "my-4 w-full max-w-[170px] rounded-sm border border-pencil-mark"
+            : "my-4 w-full max-w-lg rounded-sm border border-pencil-mark"
         }
       />
     );
@@ -75,16 +77,19 @@ export default function WhitepaperPage() {
   return (
     <div className="pb-12">
       <div className="mx-5 py-4">
-        <Link
-          href="/"
-          className="text-green-200 hover:text-green-100"
-        >
-          {"<返回"}
-        </Link>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/">{"<返回"}</Link>
+        </Button>
       </div>
-      <article className="whitepaper-content mx-6 max-w-3xl md:mx-auto md:px-4">
+      <Paper
+        as="article"
+        stock="paper"
+        tape="both"
+        tilt={false}
+        className="whitepaper-content mx-4 max-w-3xl px-5 py-8 sm:mx-6 sm:px-10 md:mx-auto"
+      >
         <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
-      </article>
+      </Paper>
     </div>
   );
 }

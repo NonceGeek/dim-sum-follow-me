@@ -34,7 +34,7 @@ function FollowPageContent() {
 
   if (uuid) {
     if (loading) return <div className="p-8 text-center">加载中…</div>;
-    if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+    if (error) return <div className="p-8 text-center text-red">{error}</div>;
     if (item) {
       const question = transformCorpusItemToQuestion(item);
       return (
@@ -50,7 +50,7 @@ function FollowPageContent() {
   return (
     <div className="">
       <UserProfile />
-      <p className="mt-5 ml-8">请选择场景并开始跟读！</p>
+      <p className="mt-5 ml-8 font-script text-xl font-bold text-ink">请选择场景并开始跟读！</p>
       <Category />
       <Footer />
     </div>

@@ -3,6 +3,15 @@ import path from "path";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import LeaderboardPlayButton from "@/components/LeaderboardPlayButton";
+import { Paper } from "@/components/ui/paper";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   formatLeaderboardDate,
   parseLeaderboardCsv,
@@ -16,10 +25,10 @@ export const metadata: Metadata = {
 };
 
 function rankRowClass(rank: number): string {
-  if (rank === 1) return "border-yellow-400/40 bg-yellow-400/10";
-  if (rank === 2) return "border-slate-300/30 bg-slate-300/10";
-  if (rank === 3) return "border-amber-700/40 bg-amber-700/10";
-  return "border-white/10 bg-white/5";
+  if (rank === 1) return "bg-hi/35";
+  if (rank === 2) return "bg-sticky-blue/40";
+  if (rank === 3) return "bg-sticky-orange/35";
+  return "";
 }
 
 export default function LeaderboardPage() {
@@ -30,70 +39,65 @@ export default function LeaderboardPage() {
   return (
     <div className="pb-12">
       <Header />
-      <main className="mx-6 max-w-5xl py-8 md:mx-auto md:px-4">
+      <main className="mx-4 max-w-5xl py-8 sm:mx-6 md:mx-auto md:px-4">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-green-200">🏆 排行榜</h1>
-          <p className="mt-2 text-sm text-neutral-400">
+          <h1 className="font-script text-4xl font-bold text-ink">🏆 排行榜</h1>
+          <p className="mt-2 text-ink-soft">
             按专家评分排序，展示优秀跟读作品，还会不定期发放奖品和证书哦！
           </p>
         </div>
 
         {entries.length === 0 ? (
-          <p className="rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center text-neutral-300">
+          <Paper stock="card" className="px-6 py-10 text-center text-ink-soft">
             暂无排行榜数据
-          </p>
+          </Paper>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
-            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-white/10 bg-white/5 text-green-200">
-                  <th className="px-4 py-3 font-semibold">排名</th>
-                  <th className="px-4 py-3 font-semibold">用户</th>
-                  <th className="px-4 py-3 font-semibold">跟读句子</th>
-                  <th className="px-4 py-3 font-semibold">AI 评分</th>
-                  <th className="px-4 py-3 font-semibold">专家评分</th>
-                  <th className="px-4 py-3 font-semibold">专家评语</th>
-                  <th className="px-4 py-3 font-semibold">录音</th>
-                  <th className="px-4 py-3 font-semibold">时间</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Paper stock="paper" tape="both" tilt={false} className="px-2 py-4 sm:px-4">
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>排名</TableHead>
+                  <TableHead>用户</TableHead>
+                  <TableHead>跟读句子</TableHead>
+                  <TableHead>AI 评分</TableHead>
+                  <TableHead>专家评分</TableHead>
+                  <TableHead>专家评语</TableHead>
+                  <TableHead>录音</TableHead>
+                  <TableHead>时间</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {entries.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className={`border-b border-white/5 ${rankRowClass(entry.rank)}`}
-                  >
-                    <td className="px-4 py-4 text-lg font-bold text-white">
+                  <TableRow key={entry.id} className={rankRowClass(entry.rank)}>
+                    <TableCell className="text-lg font-bold">
                       {rankLabel(entry.rank)}
-                    </td>
-                    <td className="px-4 py-4 font-medium text-green-100">
-                      {entry.userName}
-                    </td>
-                    <td className="max-w-xs px-4 py-4 text-white">
+                    </TableCell>
+                    <TableCell className="font-bold">{entry.userName}</TableCell>
+                    <TableCell className="max-w-xs whitespace-normal">
                       {entry.sentence}
-                    </td>
-                    <td className="px-4 py-4 text-neutral-200">{entry.aiScore}</td>
-                    <td className="px-4 py-4 text-lg font-semibold text-green-300">
+                    </TableCell>
+                    <TableCell className="ll-num text-ink-soft">{entry.aiScore}</TableCell>
+                    <TableCell className="ll-num text-lg font-bold text-orange-text">
                       {entry.expertScore}
-                    </td>
-                    <td className="max-w-xs px-4 py-4 text-neutral-300">
+                    </TableCell>
+                    <TableCell className="max-w-xs whitespace-normal text-ink-soft">
                       {entry.expertReview || "—"}
-                    </td>
-                    <td className="px-4 py-4">
+                    </TableCell>
+                    <TableCell>
                       {entry.audio ? (
                         <LeaderboardPlayButton src={entry.audio} />
                       ) : (
                         "—"
                       )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-neutral-400">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-pencil-text">
                       {formatLeaderboardDate(entry.createdAt)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Paper>
         )}
       </main>
     </div>

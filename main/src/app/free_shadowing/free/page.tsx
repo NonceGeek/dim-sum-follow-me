@@ -7,6 +7,18 @@ import FollowItemView from "@/components/FollowItemView";
 import { buildCustomShadowingQuestion, type CustomShadowingMediaType } from "@/utils/customShadowing";
 import { transcribeAudioBlob, transcribeAudioUrl, transcribeVideoBlob, transcribeVideoUrl } from "@/utils/transcribeApi";
 import { synthesizeCantoneseAudio, type TtsVoice } from "@/utils/ttsApi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Paper } from "@/components/ui/paper";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+
+const fieldTitleClass = "text-[15px] font-bold text-ink";
+const fieldLabelClass = `flex flex-col gap-1.5 ${fieldTitleClass}`;
+const linkClass =
+  "text-link underline decoration-marker/60 underline-offset-2 hover:text-link-hover";
 
 type AudioMode = "upload" | "link" | "tts";
 type VideoMode = "upload" | "link";
@@ -220,14 +232,15 @@ function FreeShadowingFreeContent() {
   };
 
   const textInputField = (
-    <label className="flex flex-col gap-1.5 text-sm text-white/80">
+    <label className={fieldLabelClass}>
       跟读文本
-      <textarea
+      <Textarea
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
         placeholder="输入要跟读的原文，例如：行路唔好睇手机吖"
         rows={3}
-        className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+        ruled
+        className="font-normal"
       />
     </label>
   );
@@ -255,13 +268,10 @@ function FreeShadowingFreeContent() {
 
     return (
       <div className="mx-8 mt-6 max-w-2xl p-8 text-center">
-        <p className="text-red-400">
+        <p className="text-red">
           链接参数不完整：需要跟读文本（st）和音频链接（audio）或视频链接（video）。
         </p>
-        <a
-          href="/free_shadowing/free"
-          className="mt-4 inline-block text-green-200 underline"
-        >
+        <a href="/free_shadowing/free" className={`mt-4 inline-block ${linkClass}`}>
           返回设置
         </a>
       </div>
@@ -269,164 +279,159 @@ function FreeShadowingFreeContent() {
   }
 
   return (
-    <div className="mx-8 mt-6 max-w-2xl">
-      <h1 className="text-xl font-semibold text-green-200">超自由跟读</h1>
+    <Paper
+      stock="paper"
+      tape="top"
+      tilt={false}
+      className="mx-4 my-6 max-w-2xl px-5 py-6 sm:mx-8 sm:px-8"
+    >
+      <h1 className="font-script text-3xl font-bold text-ink">超自由跟读</h1>
 
-      <fieldset className="mt-4 flex flex-col gap-2 text-sm text-white/80 sm:flex-row sm:gap-4">
-        <legend className="sr-only">跟读模式</legend>
-        <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-white/20 px-4 py-3 transition hover:border-green-200/50">
-          <input
-            type="radio"
-            name="shadowingMode"
-            checked={shadowingMode === "audio"}
-            onChange={() => setShadowingMode("audio")}
-          />
-          <span>
-            <span className="block font-medium text-green-200">基于音频跟读</span>
-            <span className="mt-0.5 block text-xs text-white/60">
-              上传音频、粘贴链接，或用 AI 生成粤语声音
+      <RadioGroup
+        value={shadowingMode}
+        onValueChange={(value) => setShadowingMode(value as ShadowingMode)}
+        className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4"
+        aria-label="跟读模式"
+      >
+        <label className="flex-1 cursor-pointer">
+          <Paper
+            stock={shadowingMode === "audio" ? "sticky-yellow" : "card"}
+            seed="mode-audio"
+            className="flex h-full items-center gap-3 px-4 py-3"
+          >
+            <RadioGroupItem value="audio" />
+            <span>
+              <span className="block font-bold text-ink">基于音频跟读</span>
+              <span className="mt-0.5 block text-sm text-ink-soft">
+                上传音频、粘贴链接，或用 AI 生成粤语声音
+              </span>
             </span>
-          </span>
+          </Paper>
         </label>
-        <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-white/20 px-4 py-3 transition hover:border-green-200/50">
-          <input
-            type="radio"
-            name="shadowingMode"
-            checked={shadowingMode === "video"}
-            onChange={() => setShadowingMode("video")}
-          />
-          <span>
-            <span className="block font-medium text-green-200">基于视频跟读</span>
-            <span className="mt-0.5 block text-xs text-white/60">
-              上传视频或粘贴链接，边看边跟读
+        <label className="flex-1 cursor-pointer">
+          <Paper
+            stock={shadowingMode === "video" ? "sticky-yellow" : "card"}
+            seed="mode-video"
+            className="flex h-full items-center gap-3 px-4 py-3"
+          >
+            <RadioGroupItem value="video" />
+            <span>
+              <span className="block font-bold text-ink">基于视频跟读</span>
+              <span className="mt-0.5 block text-sm text-ink-soft">
+                上传视频或粘贴链接，边看边跟读
+              </span>
             </span>
-          </span>
+          </Paper>
         </label>
-      </fieldset>
+      </RadioGroup>
 
-      <p className="mt-3 text-sm leading-relaxed text-white/80">
+      <p className="mt-4 leading-relaxed text-ink-soft">
         {shadowingMode === "audio"
           ? "自行输入跟读文本，并上传音频、粘贴音频链接，或用 AI 生成粤语声音，即可开始跟读练习。"
           : "自行输入跟读文本，并上传视频或粘贴视频链接，播放参考视频后进行跟读练习。"}
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-white/60">
+      <p className="mt-2 text-sm leading-relaxed text-pencil-text">
         {shadowingMode === "audio"
           ? "使用音频链接或 AI 生成音频提交后，可通过 URL 分享本页；上传本地文件仅在当前浏览器会话内有效。AI 音频链接约 24 小时内有效。"
           : "上传本地视频仅在当前浏览器会话内有效。"}
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-5">
         {shadowingMode === "audio" && textInputField}
 
-        <fieldset className="flex flex-col gap-2 text-sm text-white/80">
-          <legend className="mb-1">
+        <div className="flex flex-col gap-3">
+          <span className={fieldTitleClass}>
             {shadowingMode === "audio" ? "音频来源" : "视频来源"}
-          </legend>
+          </span>
           {shadowingMode === "audio" ? (
-            <>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="audioMode"
-                  checked={audioMode === "upload"}
-                  onChange={() => setAudioMode("upload")}
-                />
-                上传本地音频
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="audioMode"
-                  checked={audioMode === "link"}
-                  onChange={() => setAudioMode("link")}
-                />
-                粘贴音频链接
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="audioMode"
-                  checked={audioMode === "tts"}
-                  onChange={() => setAudioMode("tts")}
-                />
-                AI 生成声音文件
-              </label>
-            </>
+            <RadioGroup
+              value={audioMode}
+              onValueChange={(value) => setAudioMode(value as AudioMode)}
+              aria-label="音频来源"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="upload" id="audio-mode-upload" />
+                <Label htmlFor="audio-mode-upload">上传本地音频</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="link" id="audio-mode-link" />
+                <Label htmlFor="audio-mode-link">粘贴音频链接</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="tts" id="audio-mode-tts" />
+                <Label htmlFor="audio-mode-tts">AI 生成声音文件</Label>
+              </div>
+            </RadioGroup>
           ) : (
-            <>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="videoMode"
-                  checked={videoMode === "upload"}
-                  onChange={() => setVideoMode("upload")}
-                />
-                上传本地视频
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="videoMode"
-                  checked={videoMode === "link"}
-                  onChange={() => setVideoMode("link")}
-                />
-                粘贴视频链接
-              </label>
-            </>
+            <RadioGroup
+              value={videoMode}
+              onValueChange={(value) => setVideoMode(value as VideoMode)}
+              aria-label="视频来源"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="upload" id="video-mode-upload" />
+                <Label htmlFor="video-mode-upload">上传本地视频</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="link" id="video-mode-link" />
+                <Label htmlFor="video-mode-link">粘贴视频链接</Label>
+              </div>
+            </RadioGroup>
           )}
-        </fieldset>
+        </div>
 
         {shadowingMode === "audio" ? (
           audioMode === "upload" ? (
-            <label className="flex flex-col gap-1.5 text-sm text-white/80">
+            <label className={fieldLabelClass}>
               音频文件
-              <input
+              <Input
                 ref={fileInputRef}
                 type="file"
                 accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm"
-                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm file:mr-3 file:rounded file:border-0 file:bg-green-100 file:px-3 file:py-1 file:text-sm file:text-green-900"
+                className="font-normal"
               />
             </label>
           ) : audioMode === "link" ? (
-            <label className="flex flex-col gap-1.5 text-sm text-white/80">
+            <label className={fieldLabelClass}>
               音频链接
-              <input
+              <Input
                 type="url"
                 value={audioLinkInput}
                 onChange={(e) => setAudioLinkInput(e.target.value)}
                 placeholder="https://example.com/audio.mp3"
-                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+                className="font-normal"
               />
             </label>
           ) : (
             <div className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1.5 text-sm text-white/80">
+              <label className={fieldLabelClass}>
                 音色
-                <select
+                <NativeSelect
                   value={ttsVoice}
                   onChange={(e) => setTtsVoice(e.target.value as TtsVoice)}
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+                  className="font-normal"
                 >
-                  <option value="Kiki">Kiki（粤语女声）</option>
-                  <option value="Rocky">Rocky（粤语男声）</option>
-                </select>
+                  <NativeSelectOption value="Kiki">Kiki（粤语女声）</NativeSelectOption>
+                  <NativeSelectOption value="Rocky">Rocky（粤语男声）</NativeSelectOption>
+                </NativeSelect>
               </label>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleGenerateTts}
                 disabled={generatingTts || !textInput.trim()}
-                className="self-start rounded-lg border border-green-200/60 px-4 py-2 text-sm text-green-200 transition hover:bg-green-200/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="self-start"
               >
                 {generatingTts ? "生成中…" : "根据跟读文本生成声音"}
-              </button>
-              <label className="flex flex-col gap-1.5 text-sm text-white/80">
+              </Button>
+              <label className={fieldLabelClass}>
                 生成的音频链接
-                <input
+                <Input
                   type="url"
                   value={audioLinkInput}
                   onChange={(e) => setAudioLinkInput(e.target.value)}
                   placeholder="生成后会自动填入音频链接"
-                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+                  className="font-normal"
                 />
               </label>
               {audioLinkInput.trim() && (
@@ -440,24 +445,24 @@ function FreeShadowingFreeContent() {
             </div>
           )
         ) : videoMode === "upload" ? (
-          <label className="flex flex-col gap-1.5 text-sm text-white/80">
+          <label className={fieldLabelClass}>
             视频文件
-            <input
+            <Input
               ref={videoInputRef}
               type="file"
               accept="video/*,.mp4,.webm,.mov,.m4v"
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm file:mr-3 file:rounded file:border-0 file:bg-green-100 file:px-3 file:py-1 file:text-sm file:text-green-900"
+              className="font-normal"
             />
           </label>
         ) : (
-          <label className="flex flex-col gap-1.5 text-sm text-white/80">
+          <label className={fieldLabelClass}>
             视频链接
-            <input
+            <Input
               type="url"
               value={videoLinkInput}
               onChange={(e) => setVideoLinkInput(e.target.value)}
               placeholder="https://example.com/video.mp4"
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+              className="font-normal"
             />
             {videoLinkInput.trim() && (
               <video
@@ -465,7 +470,7 @@ function FreeShadowingFreeContent() {
                 playsInline
                 preload="metadata"
                 src={videoLinkInput.trim()}
-                className="mt-2 w-full max-w-md rounded-lg"
+                className="mt-2 w-full max-w-md rounded-sm"
               />
             )}
           </label>
@@ -474,19 +479,16 @@ function FreeShadowingFreeContent() {
         {shadowingMode === "video" && (
           <>
             <div className="flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleRecognizeVideoText}
                 disabled={recognizing}
-                className="rounded-lg border border-green-200/60 px-4 py-2 text-sm text-green-200 transition hover:bg-green-200/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 识别视频语音，自动填入跟读文本
-              </button>
+              </Button>
               {recognizing && videoRecognizeProgress && (
-                <span
-                  className="text-sm text-green-200/90"
-                  aria-live="polite"
-                >
+                <span className="text-sm text-ink-soft" aria-live="polite">
                   {videoRecognizeProgress}
                 </span>
               )}
@@ -496,37 +498,30 @@ function FreeShadowingFreeContent() {
         )}
 
         {shadowingMode === "audio" && audioMode === "upload" && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleRecognizeText}
             disabled={recognizing}
-            className="self-start rounded-lg border border-green-200/60 px-4 py-2 text-sm text-green-200 transition hover:bg-green-200/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="self-start"
           >
             {recognizing ? "识别中…" : "识别音频内容，自动填入跟读文本"}
-          </button>
+          </Button>
         )}
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red">{error}</p>}
 
-        <button
-          type="submit"
-          className="self-start rounded-lg border border-green-200/60 px-4 py-2 text-sm text-green-200 transition hover:bg-green-200/10"
-        >
+        <Button type="submit" size="lg" className="self-start">
           我要跟读！
-        </button>
+        </Button>
       </form>
 
-      <p className="mt-6 text-sm text-white/50">
-        <a
-          href="/free_shadowing"
-          className="text-green-400 underline decoration-green-500/50 underline-offset-2 hover:text-green-300"
-        >
+      <p className="mt-6 text-sm">
+        <a href="/free_shadowing" className={linkClass}>
           返回语料库自由跟读
         </a>
       </p>
-      <br />
-      <br />
-    </div>
+    </Paper>
   );
 }
 
@@ -534,7 +529,7 @@ export default function FreeShadowingFreePage() {
   return (
     <div>
       <Header />
-      <Suspense fallback={<div className="p-8 text-center">加载中…</div>}>
+      <Suspense fallback={<div className="p-8 text-center text-ink-soft">加载中…</div>}>
         <FreeShadowingFreeContent />
       </Suspense>
       <Footer />

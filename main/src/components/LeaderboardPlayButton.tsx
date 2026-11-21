@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IoPause, IoPlay } from "react-icons/io5";
+import { Button } from "@/components/ui/button";
 
 /** Only one leaderboard recording plays at a time. */
 let activeAudio: HTMLAudioElement | null = null;
@@ -47,13 +48,14 @@ export default function LeaderboardPlayButton({ src }: { src: string }) {
   };
 
   return (
-    <button
+    <Button
       type="button"
+      size="icon"
+      className="rounded-full"
       onClick={toggle}
       aria-label={playing ? "暂停录音" : "播放录音"}
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-green-300 text-neutral-900 transition hover:bg-green-200"
     >
-      {playing ? <IoPause className="h-4 w-4" /> : <IoPlay className="ml-0.5 h-4 w-4" />}
-    </button>
+      {playing ? <IoPause className="size-4" /> : <IoPlay className="ml-0.5 size-4" />}
+    </Button>
   );
 }

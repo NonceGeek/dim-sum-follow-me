@@ -3,6 +3,9 @@ import React, { useState } from "react";
 import Category from "@/components/Category";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 const CORPUS_OPTIONS = [
   { value: "shi-li-zhi", label: "广图粤语公开课测评集", description: "朗读苏轼「食荔枝」~" },
@@ -29,33 +32,34 @@ export default function HomePage() {
     <div className="">
       <Header />
       {/* A selector here: 切换语料集：粤语万句多用途生活场景有声语料集、广府童谣、 小猪佩奇粤语音频语料集*/}
-      <div className="mt-5 mx-8 flex items-center justify-end">
-        <div className="flex items-center gap-2">
-          <label htmlFor="corpus-select" className="shrink-0 text-sm text-white">
+      <div className="mx-4 mt-5 flex items-center justify-end sm:mx-8">
+        <div className="flex min-w-0 items-center gap-2">
+          <Label htmlFor="corpus-select" className="shrink-0">
             切换合集：
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             id="corpus-select"
-            className="max-w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-200"
+            className="max-w-full"
             value={corpusId}
             onChange={(e) =>
               setCorpusId(e.target.value as (typeof CORPUS_OPTIONS)[number]["value"])
             }
           >
             {CORPUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
+              <NativeSelectOption key={opt.value} value={opt.value}>
                 {opt.label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       {/* TODO: Here is the title and description of the selected corpus */}
-      <div className="mt-3 ml-8 text-sm">
-        <h2 className="text-lg font-semibold text-white">{corpusLabel}</h2>
-        <br />
-        <p className="text-sm text-gray-400">{corpusDescription}</p>
-      </div>
+      <Card className="mx-4 mt-4 gap-2 sm:mx-8" tape="corner" seed={corpusId}>
+        <CardHeader>
+          <CardTitle>{corpusLabel}</CardTitle>
+          <CardDescription className="text-base">{corpusDescription}</CardDescription>
+        </CardHeader>
+      </Card>
       {/* A link here with emoji index finger right to [AI DimSum 粤语语料库](https://search.aidimsum.com */}
       {/* <p className="mt-3 ml-8 text-sm">
         了解更多？👉&nbsp;&nbsp;

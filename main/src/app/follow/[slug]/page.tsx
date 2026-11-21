@@ -7,6 +7,8 @@ import Game from "@/components/Game";
 import Footer from "@/components/Footer";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
+import { Button } from "@/components/ui/button";
+import { Paper } from "@/components/ui/paper";
 
 export default function FolllowPageDetail({
   params,
@@ -53,31 +55,39 @@ export default function FolllowPageDetail({
   }, [slug, setCurrentQuestion]);
 
   return (
-    <div className="">
-      <button className="ml-5 mt-5" onClick={goBack}>
+    <div className="mx-auto max-w-4xl">
+      <Button variant="ghost" size="sm" className="ml-3 mt-5" onClick={goBack}>
         {"<返回"}
-      </button>
+      </Button>
       <div className="wrapper px-4 py-4">
         <div className="text-content">
-          <div className="flex ml-3 mt-3">
-            <div>原文:&nbsp;</div>
-            <p>{questions[quesNumber]?.originalText}</p>
+          <div className="ml-1 mt-3 flex text-ink-soft">
+            <div className="shrink-0">原文:&nbsp;</div>
+            <p className="text-ink">{questions[quesNumber]?.originalText}</p>
           </div>
           <>
-            <div
+            <Paper
               key={questions[quesNumber]?.key}
-              className="text-item mt-4 py-4 px-3 border-3 rounded-2xl border-green-200 relative text-lg leading-12 font-bold"
+              stock="pad"
+              rules="ruled"
+              tape="top"
+              seed={`follow-${slug}-${quesNumber}`}
+              className="text-item relative mt-5 pt-4 pr-4 pb-2 pl-14 text-lg leading-7 font-bold"
             >
               {questions[quesNumber]?.content}
-              <div
-                className="audio-icon text-2xl z-1000 h-[24px]"
-                onClick={() => {
-                  playAudio();
-                }}
-              >
-                <IoVolumeMediumSharp className="float-right" />
+              <div className="audio-icon flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="播放原声"
+                  onClick={() => {
+                    playAudio();
+                  }}
+                >
+                  <IoVolumeMediumSharp className="size-6" />
+                </Button>
               </div>
-            </div>
+            </Paper>
 
             <audio
               ref={audioRef}
@@ -91,39 +101,36 @@ export default function FolllowPageDetail({
         <div className="setting-wrapper mt-4 flex flex-col ">
           <div className="speed-setting flex mt-3">
             <div className="flex-1 text-center">
-              <button
-                className={classNames("leading-8 border-2 rounded-2xl", {
-                  "px-5 border-green-200 text-green-200": !isAudoSlowSpeed,
-                  "text-gray-400 border-transparent": isAudoSlowSpeed,
-                })}
+              <Button
+                variant={isAudoSlowSpeed ? "ghost" : "secondary"}
+                className={classNames({ "text-pencil-text": isAudoSlowSpeed })}
                 onClick={() => {
                   changePlaybackRate(1);
                 }}
               >
                 正常
-              </button>
+              </Button>
             </div>
             <div className="flex-1 text-center">
-              <button
-                className={classNames("leading-8 border-2 rounded-2xl", {
-                  "px-5 border-green-200 text-green-200": isAudoSlowSpeed,
-                  "text-gray-400 border-transparent": !isAudoSlowSpeed,
-                })}
+              <Button
+                variant={isAudoSlowSpeed ? "secondary" : "ghost"}
+                className={classNames({ "text-pencil-text": !isAudoSlowSpeed })}
                 onClick={() => {
                   changePlaybackRate(0.5);
                 }}
               >
                 慢速
-              </button>
+              </Button>
             </div>
           </div>
         </div>
         <Game getResult={getResult} />
 
-          <div className="question-setting flex-col flex mb-20">
+          <div className="question-setting mb-20 flex flex-col gap-3">
             <div className="w-full">
-              <button
-                className="px-3 py-1 w-full"
+              <Button
+                variant="ghost"
+                className="w-full"
                 onClick={() => {
                   let quesNumber_ = quesNumber - 1;
                   const num = Math.min(
@@ -135,12 +142,12 @@ export default function FolllowPageDetail({
                 }}
               >
                 上一题
-              </button>
+              </Button>
             </div>
 
             <div className="w-full">
-              <button
-                className="color-grey-200 leading-8 w-full border-green-200 border-2 rounded-2xl"
+              <Button
+                className="w-full"
                 onClick={() => {
                   console.log("跟读中下一题");
                   let quesNumber_ = quesNumber + 1;
@@ -153,7 +160,7 @@ export default function FolllowPageDetail({
                 }}
               >
                 下一题
-              </button>
+              </Button>
             </div>
           </div>
           

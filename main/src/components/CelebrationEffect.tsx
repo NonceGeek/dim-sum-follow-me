@@ -194,11 +194,11 @@ const CelebrationEffect = ({ type, message = "恭喜你！" }: any) => {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <h2
-              className="text-5xl md:text-7xl font-bold mb-4 tracking-wide text-white"
+              className="font-script text-5xl md:text-7xl font-bold mb-4 tracking-wide text-marker"
               style={{
                 animation:
                   "textPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards",
-                textShadow: "0 0 20px rgba(255, 255, 255, 0.7)",
+                textShadow: "0 0 20px rgba(248, 245, 238, 0.9)",
                 transform: "scale(0)",
                 opacity: 0,
               }}

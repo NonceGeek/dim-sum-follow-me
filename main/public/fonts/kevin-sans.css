@@ -1,0 +1,87 @@
+@font-face {
+  font-family: "Kevin Sans";
+  src: url("KevinSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kevin Sans";
+  src: url("KevinSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Kevin Sans Hand";
+  src: url("KevinSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 88%;
+  ascent-override: 120.45%;
+  descent-override: 60.23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Kevin Sans Hand";
+  src: url("KevinSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 88%;
+  ascent-override: 120.45%;
+  descent-override: 60.23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Kevin Sans Script";
+  src: url("KevinSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 75%;
+  ascent-override: 128.00%;
+  descent-override: 40.00%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Kevin Sans Script";
+  src: url("KevinSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 75%;
+  ascent-override: 128.00%;
+  descent-override: 40.00%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Kevin Sans Type";
+  src: url("KevinSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 82%;
+  ascent-override: 85.37%;
+  descent-override: 36.59%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Kevin Sans Type";
+  src: url("KevinSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 82%;
+  ascent-override: 85.37%;
+  descent-override: 36.59%;
+  line-gap-override: 0%;
+}

@@ -6,6 +6,9 @@ import categoryShilizi, { categoryShiliziV2 } from "@/data/categoryShilizi";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
+import { Button } from "@/components/ui/button";
+import { Paper } from "@/components/ui/paper";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type CategoryItem = {
   key: string | number;
@@ -42,51 +45,57 @@ export default function Category({
     setActivedCard(index);
   };
   return (
-    <div className="m-4 catergory-container">
+    <RadioGroup
+      value={String(activedCard)}
+      onValueChange={(value) => selectCard(Number(value))}
+      className="catergory-container mx-2 mt-4 flex flex-col gap-4 px-2 py-3 sm:mx-6"
+      aria-label="选择子合集"
+    >
       {categories.map((item, index) => (
-        <div
+        <Paper
           key={index}
-          className={classNames("flex mt-2 p-4 w-full border-3 rounded-2xl", {
-            "border-green-200": index === activedCard,
+          seed={`category-${item.key}`}
+          stock={index === activedCard ? "sticky-yellow" : "card"}
+          className={classNames("w-full cursor-pointer p-4", {
+            "duration-400": index === activedCard,
           })}
           onClick={() => selectCard(index)}
         >
           {index === activedCard ? (
             // actived card
-            <div className="w-full duration-400">
-              <div className="flex">
-                <div className="circle-container">
-                  <div className="outer-circle"></div>
-                  <div className="inner-circle-active"></div>
-                </div>
-                <div className="pl-4">
-                  <p>{item.name}</p>
-                  <div>{`共有${item.questions.length || 0}句常用语句`}</div>
+            <div className="w-full">
+              <div className="flex items-start gap-4">
+                <RadioGroupItem
+                  value={String(index)}
+                  id={`category-${index}`}
+                  className="mt-1.5"
+                />
+                <div>
+                  <label htmlFor={`category-${index}`} className="text-lg font-bold">
+                    {item.name}
+                  </label>
+                  <div className="text-ink-soft">{`共有${item.questions.length || 0}句常用语句`}</div>
                 </div>
               </div>
               <div className="text-end">
-                <button
-                  className="border-2 px-3 py-1 rounded-2xl border-green-200 text-green-200"
-                  onClick={() => start(item, index)}
-                >
-                  开始
-                </button>
+                <Button onClick={() => start(item, index)}>开始</Button>
               </div>
             </div>
           ) : (
             // inactived card
-            <div className="flex">
-              <div className="circle-container">
-                <div className="outer-circle"></div>
-                <div className="inner-circle-inactive"></div>
-              </div>
-              <div className="pl-4">
-                <p>{item.name}</p>
-              </div>
+            <div className="flex items-start gap-4">
+              <RadioGroupItem
+                value={String(index)}
+                id={`category-${index}`}
+                className="mt-1.5"
+              />
+              <label htmlFor={`category-${index}`} className="cursor-pointer text-lg">
+                {item.name}
+              </label>
             </div>
           )}
-        </div>
+        </Paper>
       ))}
-    </div>
+    </RadioGroup>
   );
 }

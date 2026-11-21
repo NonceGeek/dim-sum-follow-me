@@ -32,7 +32,7 @@ const UserProfile = ({ className }: { className?: string }) => {
     >
       <div
         id="avator"
-        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-amber-100 ring-2 ring-amber-300"
+        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-paper ring-2 ring-ink/70"
       >
         <img
           src={avatarSrc}
@@ -40,7 +40,7 @@ const UserProfile = ({ className }: { className?: string }) => {
           className="h-full w-full object-cover"
         />
       </div>
-      <div className="ml-3 whitespace-nowrap text-sm sm:text-base">
+      <div className="ml-3 whitespace-nowrap font-script text-base font-bold text-ink sm:text-lg">
         你好，探险家❤️!
       </div>
     </div>

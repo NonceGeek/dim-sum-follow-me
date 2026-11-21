@@ -1,8 +1,16 @@
 "use client";
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import WaveSurfer from "wavesurfer.js";
-import { Tooltip, Progress } from "antd";
 import { useQuestionStore } from "@/stores/questionStore";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { calculateTextSimilarity } from "@/utils/textSimilarity";
 import {
   isNonCantoneseSpeechError,
@@ -232,9 +240,9 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
 
     const ws = WaveSurfer.create({
       container: waveformRef.current,
-      waveColor: "#8ee085",
-      progressColor: "#8b5cf6",
-      cursorColor: "#333",
+      waveColor: "#df6b3c",
+      progressColor: "#2c4f9e",
+      cursorColor: "#2a2420",
       barWidth: 5,
       barRadius: 3,
       barGap: 2,
@@ -623,7 +631,7 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
 
         if (waveformRef.current) {
           const level = Math.min(48, Math.round(volume * 2));
-          waveformRef.current.style.boxShadow = `inset 0 -${level}px 0 rgba(142, 224, 133, 0.45)`;
+          waveformRef.current.style.boxShadow = `inset 0 -${level}px 0 rgba(248, 220, 76, 0.6)`;
         }
 
         animationRef.current = requestAnimationFrame(drawWaveform);
@@ -796,13 +804,13 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
       />
       {countdownDisplay && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60"
           aria-live="assertive"
           aria-label={`录制倒计时：${countdownDisplay}`}
         >
           <span
             key={countdownDisplay}
-            className="animate-pulse text-6xl font-bold text-green-200 sm:text-7xl"
+            className="animate-pulse font-script text-7xl font-bold text-hi sm:text-8xl"
           >
             {countdownDisplay}
           </span>
@@ -812,39 +820,30 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
         {/* 录音控制面板 */}
         <div className="flex shrink-0 flex-col">
           <div className="flex space-x-4">
-            <Tooltip
-              title={
-                transcribing
+            <Tooltip open={recordHintOpen} onOpenChange={setRecordHintOpen}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={recording ? "default" : "outline"}
+                  size="icon-lg"
+                  className="rounded-full text-xl"
+                  onClick={startRecording}
+                  disabled={transcribing || Boolean(countdownDisplay)}
+                  aria-label={recording ? "停止录音" : "开始录音"}
+                >
+                  <IoPulseSharp
+                    className={recording || transcribing ? "animate-pulse" : undefined}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {transcribing
                   ? "识别中…"
                   : countdownDisplay
                     ? "准备录制…"
                     : recording
                       ? "点击停止录音"
-                      : "点击录制"
-              }
-              color={"lime"}
-              key={"lime"}
-              placement="bottom"
-              open={recordHintOpen}
-              onOpenChange={setRecordHintOpen}
-            >
-              <button
-                onClick={startRecording}
-                disabled={transcribing || Boolean(countdownDisplay)}
-                className={`px-3 py-2 rounded-full font-bold text-lg duration-300 disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {recording ? (
-                  <div className="flex items-center">
-                    <div className="border text-green-200 rounded-full p-1 text-xl animate-pulse">
-                      <IoPulseSharp />
-                    </div>
-                  </div>
-                ) : (
-                  <div className={`border rounded-full p-1 text-xl ${transcribing ? "text-yellow-400 animate-pulse" : "text-grey-200"}`}>
-                    <IoPulseSharp />
-                  </div>
-                )}
-              </button>
+                      : "点击录制"}
+              </TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -853,150 +852,96 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
         <div className="relative min-w-0 flex-1">
           <div
             ref={waveformRef}
-            className="pointer-events-none border border-indigo-500/30 rounded-xl p-2 min-h-[10px]"
-            style={{ backgroundColor: recording ? "#fff" : "#ceffce" }}
+            className="pointer-events-none min-h-[10px] rounded-sm border border-dashed border-pencil-mark p-2"
+            style={{ backgroundColor: recording ? "#fffdf6" : "#f8f2de" }}
           />
           <button
             type="button"
             aria-label="播放录音"
             onClick={playRecording}
-            className="absolute inset-0 rounded-xl"
+            className="absolute inset-0 rounded-sm"
           />
         </div>
       </div>
       {transcribing && (
         <div className="mt-3 px-4">
-          <p className="mb-2 text-center text-sm text-green-200">AI 判定中……</p>
-          <Progress
-            percent={transcribeProgress}
-            showInfo={false}
-            strokeColor="#8ee085"
-            trailColor="rgba(255,255,255,0.1)"
-          />
+          <p className="mb-2 text-center text-sm text-ink-soft">AI 判定中……</p>
+          <Progress value={transcribeProgress} size="sm" />
         </div>
       )}
       {/* 音频识别结果 */}
       {transcript && (
-        <p className="mt-2 break-words px-1 text-center text-sm text-white sm:text-base">
-          录音识别结果：<b>{transcript}</b>
+        <p className="mt-3 break-words px-1 text-center text-sm text-ink sm:text-base">
+          录音识别结果：<mark className="font-bold">{transcript}</mark>
         </p>
       )}
       {audioUrl && !transcribing && (
-        <div className="mt-3 flex flex-col items-stretch gap-2 px-1 sm:flex-row sm:flex-wrap sm:justify-center sm:items-center sm:gap-3 sm:px-0">
-          <button
+        <div className="mt-4 flex flex-col items-stretch gap-2 px-1 sm:flex-row sm:flex-wrap sm:justify-center sm:items-center sm:gap-3 sm:px-0">
+          <Button
             type="button"
+            variant="outline"
             onClick={() => void handleDownload()}
             disabled={downloading}
-            className="whitespace-nowrap rounded-full border border-white px-4 py-2 text-center text-sm text-white transition-colors duration-200 hover:bg-white hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
           >
             {downloading ? "处理中…" : "下载录音"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => void handleDownloadWithNickname()}
             disabled={downloading}
-            className="whitespace-nowrap rounded-full border border-white px-4 py-2 text-center text-sm text-white transition-colors duration-200 hover:bg-white hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
           >
             {downloading ? "处理中…" : "带昵称下载录音"}
-          </button>
-          <button
-            onClick={resetState}
-            disabled={transcribing}
-            className="whitespace-nowrap rounded-full border border-white px-4 py-2 text-center text-sm text-white transition-colors duration-200 hover:bg-white hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 sm:py-1.5"
-          >
+          </Button>
+          <Button variant="outline" onClick={resetState} disabled={transcribing}>
             我要重新录制！
-          </button>
-          <button
-            type="button"
-            onClick={() => setLeaderboardQrOpen(true)}
-            className="whitespace-nowrap rounded-full border border-white px-4 py-2 text-center text-sm text-white transition-colors duration-200 hover:bg-white hover:text-neutral-800 sm:py-1.5"
-          >
+          </Button>
+          <Button type="button" onClick={() => setLeaderboardQrOpen(true)}>
             <span className="sm:hidden">提交到排行榜 😎</span>
             <span className="hidden sm:inline">将「我的跟读」提交到排行榜&nbsp;😎</span>
-          </button>
+          </Button>
         </div>
       )}
       {audioUrl && !transcribing && (
         <div className="mt-2 px-1 text-center sm:px-0">
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="sm"
             onClick={() => setLeaderboardWhyOpen(true)}
-            className="text-sm text-green-200/90 underline decoration-green-200/40 underline-offset-2 transition hover:text-green-100 hover:decoration-green-100"
           >
             🤔为什么建议将我的跟读提交到排行榜？
-          </button>
+          </Button>
         </div>
       )}
-      {leaderboardWhyOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="为什么建议提交到排行榜"
-          onClick={() => setLeaderboardWhyOpen(false)}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-sm overflow-auto rounded-2xl border border-white/10 bg-[#181b1f] p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-green-200">
-                为什么建议提交到排行榜？
-              </h2>
-              <button
-                type="button"
-                onClick={() => setLeaderboardWhyOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
-                aria-label="关闭"
-              >
-                X
-              </button>
-            </div>
-            <div className="space-y-3 text-sm leading-relaxed text-white/80">
-              <p>当前只是在通过 AI 对你的粤语发音进行评估。</p>
-              <p>提交到排行榜后，粤语专家会人工对你的发音给出专业反馈。</p>
-              <p>同时，还有机会赢得神秘礼物🎁！</p>
-            </div>
+      <Dialog open={leaderboardWhyOpen} onOpenChange={setLeaderboardWhyOpen}>
+        <DialogContent className="max-w-sm" stock="sticky-yellow">
+          <DialogHeader>
+            <DialogTitle>为什么建议提交到排行榜？</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-[15px] leading-relaxed text-ink-soft">
+            <p>当前只是在通过 AI 对你的粤语发音进行评估。</p>
+            <p>提交到排行榜后，粤语专家会人工对你的发音给出专业反馈。</p>
+            <p>同时，还有机会赢得神秘礼物🎁！</p>
           </div>
-        </div>
-      )}
-      {leaderboardQrOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="提交到排行榜"
-          onClick={() => setLeaderboardQrOpen(false)}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-sm overflow-auto rounded-2xl border border-white/10 bg-[#181b1f] p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-green-200">
-                提交到排行榜
-              </h2>
-              <button
-                type="button"
-                onClick={() => setLeaderboardQrOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
-                aria-label="关闭"
-              >
-                X
-              </button>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={LEADERBOARD_WECHAT_QR_URL}
-              alt="微信管理员二维码"
-              className="mx-auto w-full max-w-[260px] rounded-xl bg-white p-2"
-            />
-            <p className="mt-3 text-center text-sm text-white/80">
-              扫码联系「管理员」，提交我的跟读到排行榜！
-            </p>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={leaderboardQrOpen} onOpenChange={setLeaderboardQrOpen}>
+        <DialogContent className="max-w-sm" tape="top">
+          <DialogHeader>
+            <DialogTitle>提交到排行榜</DialogTitle>
+          </DialogHeader>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={LEADERBOARD_WECHAT_QR_URL}
+            alt="微信管理员二维码"
+            className="mx-auto w-full max-w-[260px] rounded-sm bg-white p-2"
+          />
+          <p className="text-center text-[15px] text-ink-soft">
+            扫码联系「管理员」，提交我的跟读到排行榜！
+          </p>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });
