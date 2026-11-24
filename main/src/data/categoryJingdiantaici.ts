@@ -92,9 +92,10 @@ const categoryJingdiantaici: {
         style: "冷峻",
       },
       {
-        content: "我(ngo5)想(soeng2)做(zou6)個(go3)好(hou2)人(jan4)。",
-        originalText: "我想做个好人。",
-        yueText: "我想做個好人。",
+        content:
+          "我(ngo5)以(ji5)前(cin4)無(mou4)得(dak1)揀(gaan2)，我(ngo5)宜(ji4)家(gaa1)想(soeng2)揀(gaan2)翻(faan1)做(zou6)好(hou2)人(jan4)。",
+        originalText: "我以前无得拣，我宜家想拣翻做好人。",
+        yueText: "我以前無得揀，我宜家想揀翻做好人。",
         audioUrl: lineAudioUrl("我想做个好人"),
         style: "恳切",
       },
