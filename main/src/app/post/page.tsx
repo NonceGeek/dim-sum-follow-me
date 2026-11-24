@@ -28,11 +28,28 @@ const FEATURES = ["经典粤语台词", "即时跟读评分", "情感演绎挑�
 // Outlined, shadowed title text like the printed poster
 const titleStyle: React.CSSProperties = {
   color: COLORS.titleFill,
-  WebkitTextStroke: `0.5cqw ${COLORS.red}`,
-  paintOrder: "stroke fill",
-  textShadow: `0 0.45cqw 0 ${COLORS.redDark}`,
   letterSpacing: "0.05em",
 };
+
+// Old Chrome ignores paint-order on HTML text, so the outline is a separate layer behind the fill
+function OutlinedText({ children }: { children: string }) {
+  return (
+    <span className="relative inline-block">
+      <span
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          color: COLORS.red,
+          WebkitTextStroke: `0.5cqw ${COLORS.red}`,
+          textShadow: `0 0.45cqw 0 ${COLORS.redDark}`,
+        }}
+      >
+        {children}
+      </span>
+      <span className="relative">{children}</span>
+    </span>
+  );
+}
 
 // Jagged split on top of a steamed bun, where the 叉烧 filling bursts out
 function crackPoints(cx: number, cy: number, r: number): string {
@@ -206,10 +223,10 @@ export default function PostPage() {
                 }}
               />
               <h1 className="font-black leading-none" style={{ ...titleStyle, fontSize: "5.4cqw", paddingLeft: "8cqw" }}>
-                经典台词
+                <OutlinedText>经典台词</OutlinedText>
               </h1>
               <h1 className="font-black leading-none" style={{ ...titleStyle, fontSize: "5.4cqw", marginTop: "0.8cqw" }}>
-                跟读大赛
+                <OutlinedText>跟读大赛</OutlinedText>
               </h1>
             </div>
 
