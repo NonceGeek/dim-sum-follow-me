@@ -308,7 +308,10 @@ const categoryShiliziV2 = [
   },
 ];
 
+// 古诗集 — 广图粤语公开课测评集 + 测评集2.0
+const categoryGushiji = [...categoryShilizi, ...categoryShiliziV2];
+
 export type CategoryShilizi = (typeof categoryShilizi)[number];
 export type CategoryShiliziV2 = (typeof categoryShiliziV2)[number];
-export { categoryShiliziV2 };
+export { categoryShiliziV2, categoryGushiji };
 export default categoryShilizi;

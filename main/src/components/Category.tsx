@@ -2,7 +2,8 @@
 import { useState } from "react";
 import category from "@/data/category";
 import categoryGfxm from "@/data/categoryGfxm";
-import categoryShilizi, { categoryShiliziV2 } from "@/data/categoryShilizi";
+import { categoryGushiji } from "@/data/categoryShilizi";
+import categoryJingdiantaici from "@/data/categoryJingdiantaici";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/questionStore";
 import classNames from "classnames";
@@ -28,12 +29,12 @@ export default function Category({
   const router = useRouter();
 
   const categories: CategoryItem[] =
-    corpusId === "gfxm1"
-      ? categoryGfxm
-      : corpusId === "shi-li-zhi"
-        ? categoryShilizi
-        : corpusId === "shi-li-zhi-v2"
-          ? categoryShiliziV2
+    corpusId === "jingdiantaici"
+      ? categoryJingdiantaici
+      : corpusId === "gfxm1"
+        ? categoryGfxm
+        : corpusId === "gushiji"
+          ? categoryGushiji
           : category;
 
   const start: any = (item: CategoryItem) => {

@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/table";
 import category from "@/data/category";
 import categoryGfxm from "@/data/categoryGfxm";
-import categoryShilizi, { categoryShiliziV2 } from "@/data/categoryShilizi";
+import { categoryGushiji } from "@/data/categoryShilizi";
+import categoryJingdiantaici from "@/data/categoryJingdiantaici";
 import Game, { GameHandle, QuestionResult } from "@/components/Game";
 import Footer from "@/components/Footer";
 import { useQuestionStore } from "@/stores/questionStore";
@@ -51,28 +52,27 @@ function triggerDownload(url: string, filename: string) {
   anchor.remove();
 }
 
-const SHILIZI_COLLECTION_NAME = "广图粤语公开课测评集";
-const SHILIZI_V2_COLLECTION_NAME = "广图粤语公开课测评集2.0";
+const GUSHIJI_COLLECTION_NAME = "古诗集";
+const JINGDIANTAICI_COLLECTION_NAME = "经典台词跟读大赛 | 高交会";
 
 const COLLECTION_NAME_BY_SLUG: Record<string, string> = {
-  "shi-li-zhi": SHILIZI_COLLECTION_NAME,
-  "shi-li-zhi-v2": SHILIZI_V2_COLLECTION_NAME,
+  gushiji: GUSHIJI_COLLECTION_NAME,
   wanjui: "粤语高频生活场景合集",
   gfxm1: "功夫熊猫1",
 };
 
 function resolveCollectionName(slug: string): string {
   if (
-    slug === "shi-li-zhi-v2" ||
-    categoryShiliziV2.some((item) => String(item.key) === slug)
+    slug === "jingdiantaici" ||
+    categoryJingdiantaici.some((item) => String(item.key) === slug)
   ) {
-    return SHILIZI_V2_COLLECTION_NAME;
+    return JINGDIANTAICI_COLLECTION_NAME;
   }
   if (
-    slug === "shi-li-zhi" ||
-    categoryShilizi.some((item) => String(item.key) === slug)
+    slug === "gushiji" ||
+    categoryGushiji.some((item) => String(item.key) === slug)
   ) {
-    return SHILIZI_COLLECTION_NAME;
+    return GUSHIJI_COLLECTION_NAME;
   }
   return COLLECTION_NAME_BY_SLUG[slug] ?? slug;
 }
@@ -81,12 +81,12 @@ function resolveCategoryItem(slug: string): {
   name?: string;
   questions?: unknown[];
 } | undefined {
+  const jingdiantaiciItem = categoryJingdiantaici.find((item) => String(item.key) === slug);
+  if (jingdiantaiciItem) return jingdiantaiciItem;
   const gfxmItem = categoryGfxm.find((item) => String(item.key) === slug);
   if (gfxmItem) return gfxmItem;
-  const shiliziV2Item = categoryShiliziV2.find((item) => String(item.key) === slug);
-  if (shiliziV2Item) return shiliziV2Item;
-  const shiliziItem = categoryShilizi.find((item) => String(item.key) === slug);
-  if (shiliziItem) return shiliziItem;
+  const gushijiItem = categoryGushiji.find((item) => String(item.key) === slug);
+  if (gushijiItem) return gushijiItem;
   return category.find((item) => String(item.key) === slug);
 }
 
@@ -265,6 +265,12 @@ export default function FolllowPageDetail({
             <div className="shrink-0">原文:&nbsp;</div>
             <p className="text-ink">{questions[quesNumber]?.originalText}</p>
           </div>
+          {questions[quesNumber]?.style && (
+            <div className="ml-1 mt-2 flex text-ink-soft">
+              <div className="shrink-0">建议情感:&nbsp;</div>
+              <p className="text-ink">{questions[quesNumber].style}</p>
+            </div>
+          )}
           <>
             <Paper
               key={questions[quesNumber]?.key}
