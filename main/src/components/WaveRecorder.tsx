@@ -100,6 +100,7 @@ interface WaveRecorderProps {
     transcript: string,
     yueText: string,
     recordingBlob?: Blob | null,
+    uploadedAt?: Date,
   ) => void;
   onReset: any;
 }
@@ -423,14 +424,24 @@ const WaveRecorder = forwardRef<WaveRecorderHandle, WaveRecorderProps>(
     await new Promise((resolve) => setTimeout(resolve, 350));
 
     try {
-      const transcript = await transcribeAudioBlob(blob, yueText ?? undefined);
+      const { transcript, uploadedAt } = await transcribeAudioBlob(
+        blob,
+        yueText ?? undefined,
+      );
       setTranscript(transcript);
       console.log("transcript", transcript);
       console.log("yueText", yueText);
 
       const finalScore = calculateTextSimilarity(transcript, yueText ?? "");
       const feedback = generateFeedback(finalScore);
-      onRecordingComplete(finalScore, feedback, transcript, yueText, recordingBlobRef.current);
+      onRecordingComplete(
+        finalScore,
+        feedback,
+        transcript,
+        yueText,
+        recordingBlobRef.current,
+        uploadedAt,
+      );
     } catch (err) {
       console.error("转录失败:", err);
       if (isNonCantoneseSpeechError(err)) {

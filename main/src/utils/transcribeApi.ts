@@ -275,17 +275,22 @@ function parseTranscribeResponse(data: {
   return transcript;
 }
 
+type TranscribeWithUploadResult = {
+  transcript: string;
+  uploadedAt: Date;
+};
+
 /** Upload audio to OSS, then call /api/transcribe with `audio_url`. */
 async function transcribeViaOssAudioUrl(
   blob: Blob,
   expected?: string,
   onProgress?: TranscribeProgressReporter,
-): Promise<string> {
+): Promise<TranscribeWithUploadResult> {
   if (!process.env.NEXT_PUBLIC_API_URL) {
     throw new Error("未配置 NEXT_PUBLIC_API_URL");
   }
 
-  const audioUrl = await uploadAudioToOss(blob, { onProgress });
+  const { url: audioUrl, uploadedAt } = await uploadAudioToOss(blob, { onProgress });
   console.log("upload audio_url", audioUrl);
 
   onProgress?.("正在 AI 语音识别…");
@@ -304,7 +309,10 @@ async function transcribeViaOssAudioUrl(
     throw new Error(`转录请求失败: ${res.status}`);
   }
 
-  return parseTranscribeResponse(await res.json());
+  return {
+    transcript: parseTranscribeResponse(await res.json()),
+    uploadedAt,
+  };
 }
 
 /**
@@ -350,7 +358,7 @@ async function transcribeWavBlob(
   wavBlob: Blob,
   onProgress?: TranscribeProgressReporter,
   expected?: string,
-): Promise<string> {
+): Promise<TranscribeWithUploadResult> {
   return transcribeViaOssAudioUrl(
     new Blob([wavBlob], { type: "audio/wav" }),
     expected,
@@ -362,7 +370,7 @@ async function transcribeWavBlob(
 export async function transcribeAudioBlob(
   blob: Blob,
   expected?: string,
-): Promise<string> {
+): Promise<TranscribeWithUploadResult> {
   const wavBlob = await convertBlobToWav(blob);
   return transcribeWavBlob(wavBlob, undefined, expected);
 }
@@ -375,9 +383,9 @@ export async function transcribeVideoBlob(
   const onProgress = options?.onProgress;
   try {
     const wavBlob = await extractAudioWavFromVideoFile(file, onProgress);
-    const text = await transcribeWavBlob(wavBlob, onProgress);
+    const { transcript } = await transcribeWavBlob(wavBlob, onProgress);
     onProgress?.("识别完成");
-    return text;
+    return transcript;
   } catch (err) {
     console.warn("浏览器抽取视频音轨失败，回退上传原视频:", err);
     onProgress?.("抽取失败，正在上传原视频识别…");
@@ -400,9 +408,9 @@ export async function transcribeVideoUrl(
   const onProgress = options?.onProgress;
   try {
     const wavBlob = await extractAudioWavFromVideoUrl(url, onProgress);
-    const text = await transcribeWavBlob(wavBlob, onProgress);
+    const { transcript } = await transcribeWavBlob(wavBlob, onProgress);
     onProgress?.("识别完成");
-    return text;
+    return transcript;
   } catch (err) {
     console.warn("浏览器抽取视频音轨失败，回退下载原视频:", err);
     onProgress?.("正在下载视频…");

@@ -171,7 +171,7 @@ function FreeShadowingFreeContent() {
           setError("请先上传音频文件");
           return;
         }
-        text = await transcribeAudioBlob(file);
+        text = (await transcribeAudioBlob(file)).transcript;
       } else {
         const audioUrl = audioLinkInput.trim();
         if (!audioUrl) {

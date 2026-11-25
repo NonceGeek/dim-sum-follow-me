@@ -80,11 +80,17 @@ async function readOssError(res: Response): Promise<string> {
   return detail;
 }
 
+export type OssUploadResult = {
+  url: string;
+  /** Beijing-local wall clock when the OSS PUT succeeded */
+  uploadedAt: Date;
+};
+
 /** Upload an audio blob straight to OSS via signed PUT; return the verified public URL. */
 export async function uploadAudioToOss(
   blob: Blob,
   options?: { onProgress?: (message: string) => void },
-): Promise<string> {
+): Promise<OssUploadResult> {
   const contentType = normalizeContentType(blob);
   const report = options?.onProgress;
 
@@ -126,6 +132,9 @@ export async function uploadAudioToOss(
     throw new Error(`上传到 OSS 失败: ${await readOssError(putRes)}`);
   }
 
+  // Stamp as soon as OSS accepts the PUT (before the best-effort complete call).
+  const uploadedAt = new Date();
+
   // 3) complete — best-effort: OSS already accepted the PUT, so public_url is valid
   // even if this confirmation call fails (e.g. backend timeout / CORS on error).
   report?.("正在确认上传…");
@@ -138,7 +147,7 @@ export async function uploadAudioToOss(
     });
     if (completeRes.ok) {
       const complete = (await completeRes.json()) as CompleteResponse;
-      if (complete.url) return complete.url;
+      if (complete.url) return { url: complete.url, uploadedAt };
     } else {
       console.warn("确认上传失败，改用 public_url:", await readJsonError(completeRes));
     }
@@ -147,5 +156,5 @@ export async function uploadAudioToOss(
   }
 
   if (!pre.public_url) throw new Error("上传失败: 缺少文件地址");
-  return pre.public_url;
+  return { url: pre.public_url, uploadedAt };
 }

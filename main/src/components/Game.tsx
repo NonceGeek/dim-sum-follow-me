@@ -14,6 +14,7 @@ export interface QuestionResult {
   score: number | string;
   feedback: string;
   recordingBlob?: Blob | null;
+  uploadedAt?: Date;
 }
 
 const Game = forwardRef<
@@ -25,6 +26,7 @@ const Game = forwardRef<
   const [showScore, setShowScore] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [yueText, setYueText] = useState("");
+  const [uploadedAt, setUploadedAt] = useState<Date | undefined>();
 
   const recorderRef = useRef<WaveRecorderHandle>(null);
 
@@ -35,14 +37,16 @@ const Game = forwardRef<
     transcript: string,
     yueText: string,
     recordingBlob?: Blob | null,
+    uploadedAt?: Date,
   ) => {
     setScore(score);
     setFeedback(feedback);
     setTranscript(transcript);
     setYueText(yueText);
+    setUploadedAt(uploadedAt);
     setShowScore(true);
     getResult(score);
-    onResult?.({ transcript, yueText, score, feedback, recordingBlob });
+    onResult?.({ transcript, yueText, score, feedback, recordingBlob, uploadedAt });
   };
 
   const resetDisplayState = () => {
@@ -51,6 +55,7 @@ const Game = forwardRef<
     setShowScore(false);
     setTranscript("");
     setYueText("");
+    setUploadedAt(undefined);
   };
 
   // 重置所有状态（供父组件通过 ref 调用）
@@ -71,7 +76,9 @@ const Game = forwardRef<
         onRecordingComplete={handleRecordingComplete}
         onReset={resetDisplayState}
       />
-      {showScore && <ScoreDisplay score={score} feedback={feedback} />}
+      {showScore && (
+        <ScoreDisplay score={score} feedback={feedback} uploadedAt={uploadedAt} />
+      )}
     </main>
   );
 });
